@@ -16,11 +16,19 @@ const handleResponse = async (response) => {
 // Headers with simulated auth
 import { AuthService } from './auth.js';
 
+const roleMap = {
+    'Administrador': 'Admin',
+    'Analista': 'PMO',
+    'Visualizador': 'Consulta'
+};
+
 const getHeaders = () => {
     const user = AuthService.getCurrentUser() || {};
+    const backendRole = roleMap[user.role] || user.role || 'Guest';
+
     return {
         'Content-Type': 'application/json',
-        'x-user-role': user.role || 'Guest', 
+        'x-user-role': backendRole, 
         'x-user-name': user.name || 'Unknown'
     };
 };
