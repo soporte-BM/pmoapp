@@ -27,4 +27,39 @@ export const ProjectRepository = {
       `);
         return result.recordset[0];
     },
+
+    update: async (id: number, project: Project): Promise<Project> => {
+        const pool = getPool();
+        const result = await pool.request()
+            .input('id', sql.Int, id)
+            .input('project_code', sql.VarChar, project.project_code)
+            .input('name', sql.VarChar, project.name)
+            .query(`
+                UPDATE Projects
+                SET project_code = @project_code, name = @name
+                OUTPUT INSERTED.*
+                WHERE id = @id
+            `);
+        if (!result.recordset || result.recordset.length === 0) throw new Error('Project not found');
+        return result.recordset[0];
+    },
+
+    delete: async (id: number): Promise<void> => {
+        const pool = getPool();
+        const transaction = new sql.Transaction(pool);
+        await transaction.begin();
+        try {
+            const request = new sql.Request(transaction);
+            request.input('id', sql.Int, id);
+
+            // Delete associated closures (ClosureResourceHours deletes via ON DELETE CASCADE)
+            await request.query('DELETE FROM MonthlyClosures WHERE project_id = @id');
+            await request.query('DELETE FROM Projects WHERE id = @id');
+            
+            await transaction.commit();
+        } catch (error) {
+            await transaction.rollback();
+            throw error;
+        }
+    },
 };

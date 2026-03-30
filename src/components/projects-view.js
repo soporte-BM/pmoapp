@@ -84,7 +84,8 @@ export async function renderProjects(container) {
                                             <strong style="color: ${color}; font-size: 1.1em;">${formatPercent(profitability)}</strong>
                                         </td>
                                         <td style="padding: 12px; text-align: center;">
-                                            <button class="btn-edit-project" data-name="${p.name}" style="background: none; border: none; cursor: pointer; font-size: 1.2rem;" title="Editar Registros">✏️</button>
+                                            <button class="btn-edit-registries" data-name="${p.name}" style="background: none; border: none; cursor: pointer; font-size: 1.2rem;" title="Ver Cierres de Mes">📅</button>
+                                            <button class="btn-edit-project" data-id="${p.id}" data-code="${p.code}" data-name="${p.name}" style="background: none; border: none; cursor: pointer; font-size: 1.2rem;" title="Editar Proyecto">✏️</button>
                                             <button class="btn-delete-project" data-name="${p.name}" data-id="${p.id}" style="background: none; border: none; cursor: pointer; font-size: 1.2rem; color: #dc2626;" title="Eliminar Proyecto">🗑️</button>
                                         </td>
                                     </tr>
@@ -208,24 +209,45 @@ export async function renderProjects(container) {
             });
         });
 
-        const editBtns = document.querySelectorAll('.btn-edit-project');
-        editBtns.forEach(btn => {
+        const registryBtns = document.querySelectorAll('.btn-edit-registries');
+        registryBtns.forEach(btn => {
             btn.addEventListener('click', (e) => {
                 const projectName = e.target.closest('button').dataset.name;
                 openEditModal(projectName);
             });
         });
 
+        const editBtns = document.querySelectorAll('.btn-edit-project');
+        editBtns.forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const btnEl = e.target.closest('button');
+                const projectId = btnEl.dataset.id;
+                const projectCode = btnEl.dataset.code;
+                const projectName = btnEl.dataset.name;
+                openEditProjectModal(projectId, projectCode, projectName);
+            });
+        });
+
         const deleteBtns = document.querySelectorAll('.btn-delete-project');
         deleteBtns.forEach(btn => {
-            btn.addEventListener('click', (e) => {
+            btn.addEventListener('click', async (e) => {
                 const btnEl = e.target.closest('button');
                 const projectName = btnEl.dataset.name;
                 const projectId = btnEl.dataset.id;
                 
                 if (confirm(`¿Está seguro de que desea eliminar el proyecto "${projectName}"?`)) {
-                    // This violates standard CRUD since we don't have delete endpoint yet, but we will mock it
-                    alert('Eliminación de proyectos no soportada en esta versión con SQL.');
+                    const validation = prompt(`ADVERTENCIA: Esta acción eliminará el proyecto y todos sus registros de horas (cierres).\nPara confirmar de forma definitiva, escriba exactamente: ELIMINAR`);
+                    if (validation === 'ELIMINAR') {
+                        try {
+                            await ApiService.deleteProject(projectId);
+                            alert('Proyecto y registros eliminados exitosamente.');
+                            renderProjects(container);
+                        } catch(error) {
+                            alert('Error al eliminar proyecto: ' + error.message);
+                        }
+                    } else if (validation !== null) {
+                        alert('Palabra de validación incorrecta. Eliminación cancelada.');
+                    }
                 }
             });
         });
@@ -254,6 +276,71 @@ export async function renderProjects(container) {
                 alert('Limpieza masiva requiere endpoint especial en SQL. Contacte a soporte.');
             });
         }
+    };
+
+    const openEditProjectModal = (projectId, currentCode, currentName) => {
+        let modalContainer = document.getElementById('modal-container');
+        let modalOverlay = document.getElementById('modal-overlay');
+
+        if (!modalContainer || !modalOverlay) {
+            modalOverlay = document.createElement('div');
+            modalOverlay.id = 'modal-overlay';
+            modalContainer = document.createElement('div');
+            modalContainer.id = 'modal-container';
+            document.body.appendChild(modalOverlay);
+            document.body.appendChild(modalContainer);
+        }
+
+        modalOverlay.className = 'hidden';
+        modalOverlay.style.cssText = 'position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 1000;';
+        modalContainer.className = 'hidden';
+        modalContainer.style.cssText = 'position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 1001; background: transparent; width: 100%; display: flex; justify-content: center;';
+
+        const html = `
+            <div class="modal-content" style="background: white; padding: 20px; border-radius: 8px; width: 90%; max-width: 400px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+                <h3 style="margin-bottom: 20px; color: var(--secondary);">Editar Proyecto</h3>
+                <div class="form-group" style="margin-bottom: 15px;">
+                    <label class="form-label" style="display:block; margin-bottom: 5px; font-weight: 500;">Código del Proyecto:</label>
+                    <input type="text" id="edit-project-code" class="form-input" style="width: 100%; padding: 8px;" value="${currentCode}" autocomplete="off" />
+                </div>
+                <div class="form-group" style="margin-bottom: 15px;">
+                    <label class="form-label" style="display:block; margin-bottom: 5px; font-weight: 500;">Nombre del Proyecto:</label>
+                    <input type="text" id="edit-project-name" class="form-input" style="width: 100%; padding: 8px;" value="${currentName}" autocomplete="off" />
+                </div>
+                <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px;">
+                    <button id="btn-cancel-edit-proj" class="btn-secondary" style="padding: 8px 16px; border: none; border-radius: 4px; cursor: pointer;">Cancelar</button>
+                    <button id="btn-save-edit-proj" class="btn-primary" style="padding: 8px 16px; background: #0B8E84; color: white; border: none; border-radius: 4px; cursor: pointer;">Actualizar Proyecto</button>
+                </div>
+            </div>
+        `;
+
+        modalContainer.innerHTML = html;
+        modalContainer.classList.remove('hidden');
+        modalOverlay.classList.remove('hidden');
+
+        document.getElementById('btn-cancel-edit-proj').addEventListener('click', () => {
+            modalContainer.classList.add('hidden');
+            modalOverlay.classList.add('hidden');
+        });
+
+        document.getElementById('btn-save-edit-proj').addEventListener('click', async () => {
+            const code = document.getElementById('edit-project-code').value.trim();
+            const name = document.getElementById('edit-project-name').value.trim();
+
+            if (!code || !name) {
+                alert("Ambos campos son obligatorios.");
+                return;
+            }
+
+            try {
+                await ApiService.updateProject(projectId, { code, name });
+                modalContainer.classList.add('hidden');
+                modalOverlay.classList.add('hidden');
+                renderProjects(container);
+            } catch(err) {
+                alert("Error al actualizar proyecto: " + err.message);
+            }
+        });
     };
 
     const openEditModal = (projectName) => {

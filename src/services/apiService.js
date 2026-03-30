@@ -47,6 +47,31 @@ export const ApiService = {
         return handleResponse(response);
     },
 
+    updateProject: async (id, project) => {
+        const payload = {
+            project_code: project.code,
+            name: project.name
+        };
+        const response = await fetch(`${API_BASE_URL}/projects/${id}`, {
+            method: 'PUT',
+            headers: getHeaders(),
+            body: JSON.stringify(payload)
+        });
+        return handleResponse(response);
+    },
+
+    deleteProject: async (id) => {
+        const response = await fetch(`${API_BASE_URL}/projects/${id}`, {
+            method: 'DELETE',
+            headers: getHeaders()
+        });
+        if (!response.ok) {
+            const error = await response.json().catch(() => ({ message: 'Unknown error' }));
+            throw new Error(error.message || `Request failed: ${response.status}`);
+        }
+        return true;
+    },
+
     // Resources
     getResources: async () => {
         const response = await fetch(`${API_BASE_URL}/resources`, { headers: getHeaders() });
