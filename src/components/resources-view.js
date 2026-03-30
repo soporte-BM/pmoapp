@@ -1,18 +1,24 @@
 import { ApiService } from '../services/apiService.js';
 import { formatCurrency, formatPeriod, parsePeriodToMmmYy } from '../utils/format.js';
+import { AuthService } from '../services/auth.js';
 
 export async function renderResources(container) {
     let professionals = await ApiService.getAllRates();
 
     const render = () => {
+        const user = AuthService.getCurrentUser() || {};
+        const isViewer = user.role === 'Visualizador';
+        
         const html = `
             <div class="projects-container">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
                     <h2 style="margin: 0; color: #111827;">Maestro de Profesionales</h2>
                     <div style="display: flex; gap: 10px;">
+                        ${!isViewer ? `
                         <input type="file" id="excel-upload" accept=".xlsx, .xls" style="display: none;" />
                         <button id="btn-import-excel" class="btn-secondary">📤 Importar Excel</button>
                         <button id="btn-new-pro" class="btn-primary">+ Nuevo Profesional</button>
+                        ` : ''}
                     </div>
                 </div>
 

@@ -1,6 +1,7 @@
 import { ApiService } from '../services/apiService.js';
 import { AnalyticsService } from '../services/analytics.js';
 import { formatPercent, parsePeriodToMmmYy } from '../utils/format.js';
+import { AuthService } from '../services/auth.js';
 
 export async function renderProjects(container) {
     let projects = await ApiService.getProjects();
@@ -32,6 +33,8 @@ export async function renderProjects(container) {
     let currentFilter = 'Todos';
 
     const render = () => {
+        const user = AuthService.getCurrentUser() || {};
+        const isViewer = user.role === 'Visualizador';
         const filteredProjects = projects.filter(p => currentFilter === 'Todos' || p.status === currentFilter);
 
         const html = `
@@ -46,10 +49,12 @@ export async function renderProjects(container) {
                         </select>
                     </div>
                     <div style="display: flex; gap: 10px;">
+                        ${!isViewer ? `
                         <input type="file" id="excel-upload" accept=".xlsx, .xls" style="display: none;" />
                         <button id="btn-import-excel" class="btn-secondary">⬇️ Importar Excel</button>
                         <button id="btn-clear-imports" class="btn-secondary" style="color: #b45309; border-color: #b45309;">🗑️ Limpiar Importaciones</button>
                         <button id="btn-new-project" class="btn-primary">+ Nuevo Proyecto</button>
+                        ` : ''}
                     </div>
                 </div>
 
@@ -75,7 +80,7 @@ export async function renderProjects(container) {
                                         <td style="padding: 12px;">${p.code}</td>
                                         <td style="padding: 12px;">${p.name}</td>
                                         <td style="padding: 12px;">
-                                            <select class="status-select form-input" data-id="${p.id}" style="width: 130px; padding: 6px; border-radius: 4px;">
+                                            <select class="status-select form-input" data-id="${p.id}" style="width: 130px; padding: 6px; border-radius: 4px;" ${isViewer ? 'disabled' : ''}>
                                                 <option value="Activo" ${p.status === 'Activo' ? 'selected' : ''}>Activo</option>
                                                 <option value="Finalizado" ${p.status === 'Finalizado' ? 'selected' : ''}>Finalizado</option>
                                             </select>
@@ -85,8 +90,10 @@ export async function renderProjects(container) {
                                         </td>
                                         <td style="padding: 12px; text-align: center;">
                                             <button class="btn-edit-registries" data-name="${p.name}" style="background: none; border: none; cursor: pointer; font-size: 1.2rem;" title="Ver Cierres de Mes">📅</button>
+                                            ${!isViewer ? `
                                             <button class="btn-edit-project" data-id="${p.id}" data-code="${p.code}" data-name="${p.name}" style="background: none; border: none; cursor: pointer; font-size: 1.2rem;" title="Editar Proyecto">✏️</button>
                                             <button class="btn-delete-project" data-name="${p.name}" data-id="${p.id}" style="background: none; border: none; cursor: pointer; font-size: 1.2rem; color: #dc2626;" title="Eliminar Proyecto">🗑️</button>
+                                            ` : ''}
                                         </td>
                                     </tr>
                                 `;
@@ -344,6 +351,8 @@ export async function renderProjects(container) {
     };
 
     const openEditModal = (projectName) => {
+        const user = AuthService.getCurrentUser() || {};
+        const isViewer = user.role === 'Visualizador';
         let modalContainer = document.getElementById('modal-container');
         let modalOverlay = document.getElementById('modal-overlay');
 
@@ -388,8 +397,8 @@ export async function renderProjects(container) {
                     <!-- Formulario dinámico inyectado aquí -->
                 </div>
                 <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px;">
-                    <button id="btn-cancel-edit" class="btn-secondary" style="padding: 8px 16px; border: none; border-radius: 4px; cursor: pointer;">Cancelar</button>
-                    <button id="btn-save-edit" class="btn-primary" style="padding: 8px 16px; background: #0B8E84; color: white; border: none; border-radius: 4px; cursor: pointer;">Guardar Cambios</button>
+                    <button id="btn-cancel-edit" class="btn-secondary" style="padding: 8px 16px; border: none; border-radius: 4px; cursor: pointer;">${isViewer ? 'Cerrar' : 'Cancelar'}</button>
+                    ${!isViewer ? `<button id="btn-save-edit" class="btn-primary" style="padding: 8px 16px; background: #0B8E84; color: white; border: none; border-radius: 4px; cursor: pointer;">Guardar Cambios</button>` : ''}
                 </div>
             </div>
         `;
@@ -425,7 +434,7 @@ export async function renderProjects(container) {
                             ${entry.professionals.map((p, i) => `
                                 <div style="display: flex; align-items: center; gap: 10px;">
                                     <span style="flex:1; font-size: 0.9em; color: #4b5563;">${p.resourceName || p.name}</span>
-                                    <input type="number" class="form-input edit-prof-hour" data-index="${i}" value="${p.hours}" style="width: 80px;" min="0">
+                                    <input type="number" class="form-input edit-prof-hour" data-index="${i}" value="${p.hours}" style="width: 80px;" min="0" ${isViewer ? 'disabled' : ''}>
                                 </div>
                             `).join('')}
                         </div>
@@ -437,17 +446,17 @@ export async function renderProjects(container) {
                 <div class="form-row" style="margin-top: 15px;">
                     <div class="form-group">
                         <label class="form-label">Ingreso Mensual (CLP)</label>
-                        <input type="number" id="edit-revenue" class="form-input" value="${entry.revenue}">
+                        <input type="number" id="edit-revenue" class="form-input" value="${entry.revenue}" ${isViewer ? 'disabled' : ''}>
                     </div>
                     <div class="form-group">
                         <label class="form-label">Costos de Terceros</label>
-                        <input type="number" id="edit-third-costs" class="form-input" value="${entry.thirdPartyCosts}">
+                        <input type="number" id="edit-third-costs" class="form-input" value="${entry.thirdPartyCosts}" ${isViewer ? 'disabled' : ''}>
                     </div>
                 </div>
                 <div class="form-row">
                     <div class="form-group">
                         <label class="form-label">Tipo de Registro</label>
-                        <select id="edit-type-record" class="form-input">
+                        <select id="edit-type-record" class="form-input" ${isViewer ? 'disabled' : ''}>
                             <option value="REAL" ${entry.tipoRegistro !== 'PROYECCION' ? 'selected' : ''}>Real</option>
                             <option value="PROYECCION" ${entry.tipoRegistro === 'PROYECCION' ? 'selected' : ''}>Proyección</option>
                         </select>
@@ -470,8 +479,10 @@ export async function renderProjects(container) {
             modalContainer.classList.add('hidden');
             modalOverlay.classList.add('hidden');
         });
-
-        document.getElementById('btn-save-edit').addEventListener('click', () => {
+        
+        const saveBtn = document.getElementById('btn-save-edit');
+        if (saveBtn) {
+            saveBtn.addEventListener('click', () => {
             const entryId = selectPeriod.value;
             const entry = projectEntries.find(e => e.id === entryId);
             
@@ -519,6 +530,7 @@ export async function renderProjects(container) {
                 alert(error.message);
             }
         });
+        }
     };
 
     const handleExcelUpload = (e) => {

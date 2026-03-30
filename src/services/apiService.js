@@ -14,11 +14,16 @@ const handleResponse = async (response) => {
 };
 
 // Headers with simulated auth
-const getHeaders = () => ({
-    'Content-Type': 'application/json',
-    'x-user-role': 'Admin', // Fixed casing for backend middleware
-    'x-user-name': 'DevFrontend'
-});
+import { AuthService } from './auth.js';
+
+const getHeaders = () => {
+    const user = AuthService.getCurrentUser() || {};
+    return {
+        'Content-Type': 'application/json',
+        'x-user-role': user.role || 'Guest', 
+        'x-user-name': user.name || 'Unknown'
+    };
+};
 
 export const ApiService = {
     // Projects

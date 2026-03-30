@@ -11,6 +11,12 @@ const MOCK_USERS = [
         role: 'Administrador'
     },
     {
+        email: 'visualizar@pmo.com',
+        password: 'admin',
+        name: 'Visualizador',
+        role: 'Visualizador'
+    },
+    {
         email: 'user@pmo.com',
         password: 'user',
         name: 'Analista PMO',
