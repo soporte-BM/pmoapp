@@ -426,10 +426,7 @@ export async function renderProjects(container) {
                     modalOverlay.classList.add('hidden');
                     
                     // Actualizar interfaz principal
-                    ApiService.getAllEntries().then(e => {
-                        // Render uses entries from outer variables, so we need to trigger re-render properly or reload
-                        window.location.reload(); 
-                    });
+                    renderProjects(container);
                 });
             } catch (error) {
                 alert(error.message);
@@ -593,7 +590,7 @@ export async function renderProjects(container) {
                 // Reset file input
                 e.target.value = '';
 
-                let message = `Importación Finalizada:\n✔️ Cargados: ${loadedReal} REAL | ${loadedProj} PROYECCION\n🔄 ${overwrittenCount} registros sobrescritos.\n❌ ${errorCount} errores.`;
+                let message = `✅ Carga Exitosa:\n✔️ Cargados: ${loadedReal} REAL | ${loadedProj} PROYECCION\n🔄 ${overwrittenCount} registros sobrescritos.\n❌ ${errorCount} errores.`;
                 if (errors.length > 0) {
                     message += `\n\nDetalles de errores:\n` + errors.slice(0, 5).join('\n');
                     if (errors.length > 5) message += `\n...y ${errors.length - 5} más.`;
@@ -601,8 +598,8 @@ export async function renderProjects(container) {
 
                 alert(message);
                 
-                // Refresh list
-                window.location.reload();
+                // Refresh list sin recargar la página completa
+                renderProjects(container);
 
                 }); // end of ApiService.getProjects().then
 
