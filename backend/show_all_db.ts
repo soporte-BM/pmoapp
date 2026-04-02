@@ -19,7 +19,7 @@ async function showAll() {
     try {
         const pool = await sql.connect(config);
         const tables = ['Projects', 'Resources', 'ResourceMonthlyRates', 'MonthlyClosures', 'ClosureResourceHours'];
-        
+
         for (const table of tables) {
             console.log(`\n=== Data in ${table} ===`);
             try {
@@ -29,7 +29,7 @@ async function showAll() {
                 console.log(`Could not query ${table}: ${err.message}`);
             }
         }
-        
+
         await pool.close();
     } catch (err) {
         console.error('Connection failed:', err);
