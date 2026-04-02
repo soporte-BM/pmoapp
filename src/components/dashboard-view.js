@@ -1,13 +1,53 @@
 import { StorageService } from '../services/storage.js';
 import { AnalyticsService } from '../services/analytics.js';
-import { formatCurrency, formatPercent, formatPeriod } from '../utils/format.js';
+import { ApiService } from '../services/apiService.js';
+import { formatCurrency, formatPercent, formatPeriod, parsePeriodToMmmYy } from '../utils/format.js';
 
-export function renderDashboard(container, options = {}) {
+export async function renderDashboard(container, options = {}) {
     const { 
         projectFilter = 'all', 
         calcMode = 'accumulated', // 'accumulated' or 'punctual'
-        showAllProjects = false 
+        showAllProjects = false,
+        skipFetch = false
     } = options;
+
+    if (!skipFetch) {
+        container.innerHTML = '<div style="padding:20px; text-align:center;">Cargando datos desde el servidor...</div>';
+        try {
+            const [dbProjects, dbClosures] = await Promise.all([
+                ApiService.getProjects(),
+                ApiService.getAllEntries()
+            ]);
+
+            const mappedProjects = dbProjects.map(p => ({
+                id: String(p.id),
+                code: p.project_code,
+                name: p.name,
+                manager: p.manager,
+                status: p.status === 'INACTIVE' ? 'Finalizado' : 'Activo'
+            }));
+
+            const mappedEntries = dbClosures.map(c => ({
+                id: String(c.id),
+                projectCode: c.project_code,
+                project: c.project_name, 
+                month: parsePeriodToMmmYy(c.period),
+                revenue: Number(c.revenue) || 0,
+                thirdPartyCosts: Number(c.third_party_costs) || 0,
+                professionals: (c.resources || []).map(r => ({
+                    name: r.resource_name,
+                    hours: Number(r.hours),
+                    rate: Number(r.rate_snapshot_direct) + Number(r.rate_snapshot_indirect)
+                })),
+                tipoRegistro: c.status === 'VALIDATED' ? 'REAL' : 'PROYECCION' 
+            }));
+
+            StorageService.saveProjectsBulk(mappedProjects);
+            StorageService.saveEntriesBulk(mappedEntries);
+        } catch (err) {
+            console.error('Error sincronizando con Backend en Dashboard:', err);
+        }
+    }
 
     const allProjects = StorageService.getProjects();
     const activeProjectNames = new Set(allProjects.filter(p => p.status === 'Activo').map(p => p.name));
