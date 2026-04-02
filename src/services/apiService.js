@@ -13,11 +13,15 @@ const handleResponse = async (response) => {
 };
 
 // Headers with simulated auth
-const getHeaders = () => ({
-    'Content-Type': 'application/json',
-    'x-user-role': 'ADMIN', // Simulate Admin for now, change as needed
-    'x-user-name': 'DevFrontend'
-});
+const getHeaders = () => {
+    const userStr = sessionStorage.getItem('pmo_auth_user_v1');
+    const user = userStr ? JSON.parse(userStr) : null;
+    return {
+        'Content-Type': 'application/json',
+        'x-user-role': 'Admin', // Strict Case Sensitive required by backend auth
+        'x-user-name': user ? user.name : 'PMO WebApp'
+    };
+};
 
 export const ApiService = {
     // Projects
