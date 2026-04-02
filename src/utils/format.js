@@ -34,8 +34,21 @@ export const parsePeriodToMmmYy = (period) => {
         return `${MONTHS_MAP[m]}-${y}`;
     }
 
+    // Si es un Timestamp ISO de Azure (ej: "2025-01-01T00:00:00.000Z")
+    if (strPeriod.includes('t')) {
+        strPeriod = strPeriod.split('t')[0];
+    }
+
+    // Format: YYYY-MM-DD (ej: 2025-01-01)
+    let match = strPeriod.match(/^(\d{4})[-\s/.](\d{1,2})[-\s/.](\d{1,2})$/);
+    if (match) {
+        const year = match[1].slice(-2);
+        const month = MONTHS_MAP[match[2].padStart(2, '0')];
+        if (month) return `${month}-${year}`;
+    }
+
     // Format: YYYY-MM or YYYY-M (e.g. 2023-10, 2023/10, 2023 10)
-    let match = strPeriod.match(/^(\d{4})[-\s/.](\d{1,2})$/);
+    match = strPeriod.match(/^(\d{4})[-\s/.](\d{1,2})$/);
     if (match) {
         const year = match[1].slice(-2);
         const month = MONTHS_MAP[match[2].padStart(2, '0')];
