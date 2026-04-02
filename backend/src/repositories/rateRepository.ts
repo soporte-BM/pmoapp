@@ -18,7 +18,7 @@ export const RateRepository = {
             .query(`
         SELECT r.id as resource_id, r.resource_name, rr.period, rr.direct_rate, rr.indirect_rate, rr.currency
         FROM Resources r
-        JOIN ResourceMonthlyRates rr ON r.id = rr.resource_id
+        LEFT JOIN ResourceMonthlyRates rr ON r.id = rr.resource_id
         WHERE r.status = 'ACTIVE'
       `);
         return result.recordset;
