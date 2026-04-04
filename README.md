@@ -1,19 +1,20 @@
 # PMO Profitability Suite
 
 Aplicación web para la gestión y análisis de rentabilidad de proyectos de consultoría.
-Diseñada con una arquitectura "Zero-Dependency" para máxima portabilidad y seguridad.
+**Historial Arquitectónico**: Originalmente diseñada con una arquitectura "Zero-Dependency" (LocalStorage), la aplicación ha sido migrada a una arquitectura **Cliente-Servidor (Node.js + Azure SQL Database)** para asegurar la sincronización y persistencia de datos en la nube.
 
 ## 🚀 Cómo ejecutar
-Simplemente abre el archivo `index.html` en tu navegador web moderno favorito (Chrome, Edge, Firefox).
-No requiere instalación de servidores ni bases de datos.
+- **Modo Nube (Por defecto)**: Abre el frontend (`index.html` vía Live Server) y la aplicación se conectará automáticamente a la API en Azure (`https://pmoapp.azurewebsites.net/api`).
+- **Modo Desarrollo (Local)**: Si vas a desarrollar el backend localmente, cambia la URL en `apiService.js` a `localhost:3000`, entra a la carpeta `/backend` e inicia el servidor con `npm run dev`.
 
-## 🏗 Arquitectura
-La aplicación sigue un patrón MVC (Model-View-Controller) simplificado en el lado del cliente:
+## 🏗 Arquitectura Actualizada
+La aplicación implementa un patrón MVC con un Backend de consumo REST:
 
-- **Core (`src/bundle.js`)**: Contiene toda la lógica de negocio.
+- **Frontend (`src/`)**: 
+    - `apiService`: Concentra la comunicación HTTP con la API en Azure.
+    - `StorageService`: Evolucionó de ser la base de datos principal a ser una **Caché temporal (SessionStorage)** para mayor performance interactiva.
     - `AnalyticsService`: Motor de cálculo de márgenes y alertas inteligentes.
-    - `StorageService`: Capa de persistencia (usa LocalStorage del navegador).
-    - `DashboardView`: Lógica de presentación y gráficos.
+    - Múltiples vistas renderizadas por componentes.
 - **Estilos (`styles/`)**:
     - `main.css`: Variables globales y layout base.
     - `dashboard.css`: Grid system para los reportes tipo Power BI.
