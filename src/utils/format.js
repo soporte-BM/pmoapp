@@ -26,52 +26,51 @@ export const parsePeriodToMmmYy = (period) => {
     
     let strPeriod = String(period).trim().toLowerCase();
     
-    // Si viene de Excel numérico
-    if (!isNaN(strPeriod) && Number(strPeriod) > 10000) {
-        const jsDate = new Date(Math.round((Number(strPeriod) - 25569) * 86400 * 1000));
-        const m = String(jsDate.getUTCMonth() + 1).padStart(2, '0');
-        const y = String(jsDate.getUTCFullYear()).slice(-2);
-        return `${MONTHS_MAP[m]}-${y}`;
+    const formatDateEs = (jsDate) => {
+        if (isNaN(jsDate.getTime())) return null;
+        // Obligatorio uso de es-ES
+        const formatter = new Intl.DateTimeFormat('es-ES', { month: 'short', year: '2-digit', timeZone: 'UTC' });
+        const parts = formatter.formatToParts(jsDate);
+        let month = parts.find(p => p.type === 'month')?.value || '';
+        // Forzamos formato estricto: sin puntos y 3 primeros caracteres en minúscula para evitar 'ene.'
+        month = month.replace(/\./g, '').toLowerCase().substring(0, 3);
+        const year = parts.find(p => p.type === 'year')?.value || '';
+        return month && year ? `${month}-${year}` : null;
+    };
+    
+    // 1. Si viene de input type="month" o formato YYYY-MM
+    let match = strPeriod.match(/^(\d{4})[-\s/.](\d{1,2})$/);
+    if (match) {
+        const jsDate = new Date(Date.UTC(parseInt(match[1]), parseInt(match[2]) - 1, 1));
+        return formatDateEs(jsDate);
     }
 
-    // Si es un Timestamp ISO de Azure (ej: "2025-01-01T00:00:00.000Z")
+    // 2. Si es Timestamp ISO o YYYY-MM-DD
     if (strPeriod.includes('t')) {
         strPeriod = strPeriod.split('t')[0];
     }
-
-    // Format: YYYY-MM-DD (ej: 2025-01-01)
-    let match = strPeriod.match(/^(\d{4})[-\s/.](\d{1,2})[-\s/.](\d{1,2})$/);
+    match = strPeriod.match(/^(\d{4})[-\s/.](\d{1,2})[-\s/.](\d{1,2})$/);
     if (match) {
-        const year = match[1].slice(-2);
-        const month = MONTHS_MAP[match[2].padStart(2, '0')];
-        if (month) return `${month}-${year}`;
+        const jsDate = new Date(Date.UTC(parseInt(match[1]), parseInt(match[2]) - 1, parseInt(match[3])));
+        return formatDateEs(jsDate);
     }
 
-    // Format: YYYY-MM or YYYY-M (e.g. 2023-10, 2023/10, 2023 10)
-    match = strPeriod.match(/^(\d{4})[-\s/.](\d{1,2})$/);
-    if (match) {
-        const year = match[1].slice(-2);
-        const month = MONTHS_MAP[match[2].padStart(2, '0')];
-        if (month) return `${month}-${year}`;
+    // 3. Fallback: Si viene de Excel numérico
+    if (!isNaN(strPeriod) && Number(strPeriod) > 10000) {
+        const jsDate = new Date(Math.round((Number(strPeriod) - 25569) * 86400 * 1000));
+        return formatDateEs(jsDate);
     }
 
-    // Format: MM-YYYY or M-YYYY (e.g. 10-2023)
-    match = strPeriod.match(/^(\d{1,2})[-\s/.](\d{4})$/);
+    // 4. Fallback formatos manuales (MM/YYYY)
+    match = strPeriod.match(/^(\d{1,2})[-\s/.](\d{2,4})$/);
     if (match) {
-        const year = match[2].slice(-2);
-        const month = MONTHS_MAP[match[1].padStart(2, '0')];
-        if (month) return `${month}-${year}`;
-    }
-    
-    // Format: MM-YY or M-YY (e.g. 10-23)
-    match = strPeriod.match(/^(\d{1,2})[-\s/.](\d{2})$/);
-    if (match) {
-        const year = match[2];
-        const month = MONTHS_MAP[match[1].padStart(2, '0')];
-        if (month) return `${month}-${year}`;
+        let year = parseInt(match[2]);
+        if (year < 100) year += 2000;
+        const jsDate = new Date(Date.UTC(year, parseInt(match[1]) - 1, 1));
+        return formatDateEs(jsDate);
     }
 
-    // Format: mmm-yy, mmm yy, mmmmm yyyy (e.g. ene-25, enero 2025)
+    // 5. Fallback strings de palabras usando el MONTH_MAP existente
     match = strPeriod.match(/^([a-z]+)[-\s/.,]+(\d{2,4})$/);
     if (match) {
         const monthWord = match[1];
@@ -81,31 +80,15 @@ export const parsePeriodToMmmYy = (period) => {
         if (month && year) return `${month}-${year}`;
     }
 
-    // Format: yy-mmm (e.g. 25-ene)
-    match = strPeriod.match(/^(\d{2,4})[-\s/.,]+([a-z]+)$/);
-    if (match) {
-        let year = match[1];
-        if (year.length === 4) year = year.slice(-2);
-        const monthWord = match[2];
-        const month = MONTHS_MAP[monthWord];
-        if (month && year) return `${month}-${year}`;
-    }
-
-    return null; // Invalid format
+    return null; // Formato inválido
 };
 
 export const formatPeriod = (period) => {
+    // Si ya viene pre-formateado a mmm-yy
     const parsed = parsePeriodToMmmYy(period);
+    // Retornamos estrictamente el periodo en mmm-yy usando es-ES (que retornará el parsed)
     if (parsed) {
-        const parts = parsed.split('-');
-        if (parts.length === 2) {
-            const m = parts[0];
-            const y = parts[1];
-            // Fix required by user: lowercased month "ene-2025"
-            const mmm = m.toLowerCase();
-            const yyyy = y.length === 2 ? '20' + y : y;
-            return `${mmm}-${yyyy}`;
-        }
+        return parsed;
     }
     return period;
 };
