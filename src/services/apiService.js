@@ -1,7 +1,6 @@
 // src/services/apiService.js
 
-const API_BASE_URL = 'https://pmoapp.azurewebsites.net/api'; // <--- URL DE TU BACKEND EN AZURE
-// Helper to handle responses
+const API_BASE_URL = 'https://pmoapp-avbhckasgjbfcag4.brazilsouth-01.azurewebsites.net/api';
 const handleResponse = async (response) => {
     if (!response.ok) {
         const error = await response.json().catch(() => ({ message: 'Unknown error' }));
