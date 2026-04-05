@@ -110,8 +110,8 @@ export const ApiService = {
             thirdPartyCosts: entry.thirdPartyCosts,
             resources: entry.professionals.map(p => ({
                 resourceName: p.name,
-                hours: p.hours
-                // rate is not sent, backend looks it up.
+                hours: p.hours,
+                rate: p.rate
             })),
             status: entry.tipoRegistro === 'REAL' ? 'VALIDATED' : 'DRAFT'
         };

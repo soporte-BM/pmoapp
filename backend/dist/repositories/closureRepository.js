@@ -174,26 +174,41 @@ exports.ClosureRepository = {
                 .input('closure_id', mssql_1.default.Int, closureId)
                 .query('DELETE FROM ClosureResourceHours WHERE closure_id = @closure_id');
             for (const line of data.resources) {
-                // Find resource and Get Rate for Period
-                const rateRes = yield transaction.request()
+                // Find resource
+                const resLookup = yield transaction.request()
                     .input('name', mssql_1.default.VarChar, line.resourceName)
-                    .input('period', mssql_1.default.Date, parsePeriodToSqlDate(period))
-                    .query(`
-                    SELECT r.id, COALESCE(rr.direct_rate, 0) as direct_rate, COALESCE(rr.indirect_rate, 0) as indirect_rate
-                    FROM Resources r
-                    LEFT JOIN ResourceMonthlyRates rr ON r.id = rr.resource_id AND rr.period = @period
-                    WHERE r.resource_name = @name
-                `);
-                if (rateRes.recordset.length === 0)
+                    .query('SELECT id FROM Resources WHERE resource_name = @name');
+                if (resLookup.recordset.length === 0)
                     throw new Error(`Resource ${line.resourceName} not found`);
-                const rData = rateRes.recordset[0];
+                const resourceId = resLookup.recordset[0].id;
+                let directRate = 0;
+                let indirectRate = 0;
+                if (line.rate !== undefined && line.rate !== null) {
+                    directRate = line.rate;
+                    indirectRate = 0;
+                }
+                else {
+                    // Get Rate for Period
+                    const rateRes = yield transaction.request()
+                        .input('r_id', mssql_1.default.Int, resourceId)
+                        .input('period', mssql_1.default.Date, parsePeriodToSqlDate(period))
+                        .query(`
+                        SELECT COALESCE(direct_rate, 0) as direct_rate, COALESCE(indirect_rate, 0) as indirect_rate
+                        FROM ResourceMonthlyRates 
+                        WHERE resource_id = @r_id AND period = @period
+                    `);
+                    if (rateRes.recordset.length > 0) {
+                        directRate = rateRes.recordset[0].direct_rate;
+                        indirectRate = rateRes.recordset[0].indirect_rate;
+                    }
+                }
                 // Optional: Block if rate is 0? For now allow, but maybe warn. DRAFT allows it.
                 yield transaction.request()
                     .input('closure_id', mssql_1.default.Int, closureId)
-                    .input('resource_id', mssql_1.default.Int, rData.id)
+                    .input('resource_id', mssql_1.default.Int, resourceId)
                     .input('hours', mssql_1.default.Decimal(10, 2), line.hours)
-                    .input('direct', mssql_1.default.Decimal(10, 2), rData.direct_rate)
-                    .input('indirect', mssql_1.default.Decimal(10, 2), rData.indirect_rate)
+                    .input('direct', mssql_1.default.Decimal(10, 2), directRate)
+                    .input('indirect', mssql_1.default.Decimal(10, 2), indirectRate)
                     .query(`
                     INSERT INTO ClosureResourceHours (closure_id, resource_id, hours, rate_snapshot_direct, rate_snapshot_indirect)
                     VALUES (@closure_id, @resource_id, @hours, @direct, @indirect)
