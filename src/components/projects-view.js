@@ -47,9 +47,34 @@ export async function renderProjects(container) {
     // Sort projects by Proyecto_Codigo by default
     projects.sort((a, b) => a.code.localeCompare(b.code));
 
+    const isExcelEntry = (entry) => {
+        return entry.professionals && entry.professionals.length === 1 && 
+               (entry.professionals[0].name === 'Carga Histórica' || entry.professionals[0].name === 'Recurso Importado');
+    };
+
+    let realEntriesMap = new Map();
+    entries.forEach(entry => {
+        const type = entry.tipoRegistro || 'REAL';
+        if (type !== 'REAL') return;
+
+        const key = `${entry.project}_${entry.month}`;
+        if (!realEntriesMap.has(key)) {
+            realEntriesMap.set(key, entry);
+        } else {
+            const existing = realEntriesMap.get(key);
+            if (isExcelEntry(existing) && !isExcelEntry(entry)) {
+                realEntriesMap.set(key, entry);
+            } else if (isExcelEntry(existing) === isExcelEntry(entry)) {
+                realEntriesMap.set(key, entry);
+            }
+        }
+    });
+
+    const validRealEntries = Array.from(realEntriesMap.values());
+
     // Calculate profitability per project
     const projectStats = {};
-    entries.forEach(entry => {
+    validRealEntries.forEach(entry => {
         const metrics = AnalyticsService.calculateMetrics(entry);
         if (!projectStats[entry.project]) {
             projectStats[entry.project] = {
