@@ -22,11 +22,36 @@ export async function renderResources(container) {
 
     let professionals = StorageService.getProfessionals();
 
+    let currentViewMode = 'plana';
+
+    const MONTHS_ORDER = {
+        'ene': 0, 'feb': 1, 'mar': 2, 'abr': 3, 'may': 4, 'jun': 5,
+        'jul': 6, 'ago': 7, 'sep': 8, 'oct': 9, 'nov': 10, 'dic': 11
+    };
+
+    const getPeriodValue = (period) => {
+        if (!period) return 0;
+        const parts = period.split('-');
+        if (parts.length === 2 && MONTHS_ORDER[parts[0]] !== undefined) {
+             return parseInt(parts[1]) * 12 + MONTHS_ORDER[parts[0]];
+        }
+        return 0;
+    };
+
     const render = () => {
         const html = `
             <div class="projects-container">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-                    <h2 style="margin: 0; color: #111827;">Maestro de Profesionales</h2>
+                    <div style="display: flex; gap: 15px; align-items: center;">
+                        <h2 style="margin: 0; color: #111827;">Maestro de Profesionales</h2>
+                        <div style="display: flex; gap: 10px; align-items: center; margin-left: 20px; border-left: 1px solid #e5e7eb; padding-left: 20px;">
+                            <label for="view-mode-select" style="font-weight: 500; font-size: 0.95em; color: #4b5563;">Agrupación:</label>
+                            <select id="view-mode-select" class="form-input" style="width: auto; padding: 6px 12px;">
+                                <option value="plana" ${currentViewMode === 'plana' ? 'selected' : ''}>Vista Plana</option>
+                                <option value="mensual" ${currentViewMode === 'mensual' ? 'selected' : ''}>Agrupar por Periodo</option>
+                            </select>
+                        </div>
+                    </div>
                     <div style="display: flex; gap: 10px;">
                         <input type="file" id="excel-upload" accept=".xlsx, .xls" style="display: none;" />
                         <button id="btn-import-excel" class="btn-secondary">📤 Importar Excel</button>
@@ -47,23 +72,74 @@ export async function renderResources(container) {
                             </tr>
                         </thead>
                         <tbody>
-                            ${professionals.map(p => {
-                                const beRate = Number(p.directRate) + Number(p.indirectRate);
-                                return `
-                                    <tr style="border-bottom: 1px solid #e5e7eb;">
-                                        <td style="padding: 12px;">${p.name}</td>
-                                        <td style="padding: 12px;">${formatPeriod(p.period)}</td>
-                                        <td style="padding: 12px; text-align: right;">${formatCurrency(p.directRate)}</td>
-                                        <td style="padding: 12px; text-align: right;">${formatCurrency(p.indirectRate)}</td>
-                                        <td style="padding: 12px; text-align: right;"><strong>${formatCurrency(beRate)}</strong></td>
-                                        <td style="padding: 12px; text-align: center;">
-                                            <button class="btn-edit-pro" data-id="${p.id}" style="background: none; border: none; cursor: pointer; font-size: 1.2rem;" title="Editar Profesional">✏️</button>
-                                            <button class="btn-delete-pro" data-id="${p.id}" style="background: none; border: none; cursor: pointer; font-size: 1.2rem; color: #dc2626;" title="Eliminar Profesional">🗑️</button>
-                                        </td>
-                                    </tr>
-                                `;
-                            }).join('')}
-                            ${professionals.length === 0 ? '<tr><td colspan="6" style="text-align: center; padding: 20px; color: #6b7280;">No hay profesionales registrados. Use "Nuevo Profesional" o "Importar Excel".</td></tr>' : ''}
+                            ${(() => {
+                                if (professionals.length === 0) {
+                                    return '<tr><td colspan="6" style="text-align: center; padding: 20px; color: #6b7280;">No hay profesionales registrados. Use "Nuevo Profesional" o "Importar Excel".</td></tr>';
+                                }
+
+                                if (currentViewMode === 'plana') {
+                                    return professionals.map(p => {
+                                        const beRate = Number(p.directRate) + Number(p.indirectRate);
+                                        return `
+                                            <tr style="border-bottom: 1px solid #e5e7eb;">
+                                                <td style="padding: 12px;">${p.name}</td>
+                                                <td style="padding: 12px;">${formatPeriod(p.period)}</td>
+                                                <td style="padding: 12px; text-align: right;">${formatCurrency(p.directRate)}</td>
+                                                <td style="padding: 12px; text-align: right;">${formatCurrency(p.indirectRate)}</td>
+                                                <td style="padding: 12px; text-align: right;"><strong>${formatCurrency(beRate)}</strong></td>
+                                                <td style="padding: 12px; text-align: center;">
+                                                    <button class="btn-edit-pro" data-id="${p.id}" style="background: none; border: none; cursor: pointer; font-size: 1.2rem;" title="Editar Profesional">✏️</button>
+                                                    <button class="btn-delete-pro" data-id="${p.id}" style="background: none; border: none; cursor: pointer; font-size: 1.2rem; color: #dc2626;" title="Eliminar Profesional">🗑️</button>
+                                                </td>
+                                            </tr>
+                                        `;
+                                    }).join('');
+                                }
+
+                                if (currentViewMode === 'mensual') {
+                                    const groups = {};
+                                    professionals.forEach(p => {
+                                        const key = p.period || 'Sin Periodo';
+                                        if (!groups[key]) groups[key] = [];
+                                        groups[key].push(p);
+                                    });
+                                    
+                                    const sortedKeys = Object.keys(groups).sort((a,b) => getPeriodValue(b) - getPeriodValue(a)); // Descendente
+                                    
+                                    let html = '';
+                                    sortedKeys.forEach(key => {
+                                        const groupPros = groups[key];
+                                        groupPros.sort((a, b) => String(a.name).localeCompare(String(b.name)));
+                                        
+                                        html += `
+                                            <tr style="background: #f9fafb; border-bottom: 2px solid #e5e7eb;">
+                                                <td colspan="6" style="padding: 12px; color: #374151;">
+                                                    <strong style="text-transform: uppercase;">${formatPeriod(key)}</strong>
+                                                    <span style="margin-left: 10px; font-weight: normal; color: #6b7280; font-size: 0.9em;">- ${groupPros.length} Profesional${groupPros.length !== 1 ? 'es' : ''}</span>
+                                                </td>
+                                            </tr>
+                                        `;
+                                        
+                                        html += groupPros.map(p => {
+                                            const beRate = Number(p.directRate) + Number(p.indirectRate);
+                                            return `
+                                                <tr style="border-bottom: 1px solid #e5e7eb;">
+                                                    <td style="padding: 12px; padding-left: 24px;">${p.name}</td>
+                                                    <td style="padding: 12px;">${formatPeriod(p.period)}</td>
+                                                    <td style="padding: 12px; text-align: right;">${formatCurrency(p.directRate)}</td>
+                                                    <td style="padding: 12px; text-align: right;">${formatCurrency(p.indirectRate)}</td>
+                                                    <td style="padding: 12px; text-align: right;"><strong>${formatCurrency(beRate)}</strong></td>
+                                                    <td style="padding: 12px; text-align: center;">
+                                                        <button class="btn-edit-pro" data-id="${p.id}" style="background: none; border: none; cursor: pointer; font-size: 1.2rem;" title="Editar Profesional">✏️</button>
+                                                        <button class="btn-delete-pro" data-id="${p.id}" style="background: none; border: none; cursor: pointer; font-size: 1.2rem; color: #dc2626;" title="Eliminar Profesional">🗑️</button>
+                                                    </td>
+                                                </tr>
+                                            `;
+                                        }).join('');
+                                    });
+                                    return html;
+                                }
+                            })()}
                         </tbody>
                     </table>
                 </div>
@@ -74,6 +150,15 @@ export async function renderResources(container) {
     };
 
     const attachEvents = () => {
+        // View Mode Dropdown
+        const viewModeSelect = document.getElementById('view-mode-select');
+        if (viewModeSelect) {
+            viewModeSelect.addEventListener('change', (e) => {
+                currentViewMode = e.target.value;
+                render();
+            });
+        }
+
         // Manual Add
         const btnNew = document.getElementById('btn-new-pro');
         if (btnNew) {
