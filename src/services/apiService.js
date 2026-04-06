@@ -38,8 +38,9 @@ export const ApiService = {
     },
 
     updateProject: async (id, projectData) => {
-        const response = await fetch(`${API_BASE_URL}/projects/${id}`, {
-            method: 'PUT',
+        // The backend uses an UPSERT logic on POST /projects based on project_code
+        const response = await fetch(`${API_BASE_URL}/projects`, {
+            method: 'POST',
             headers: getHeaders(),
             body: JSON.stringify(projectData)
         });
