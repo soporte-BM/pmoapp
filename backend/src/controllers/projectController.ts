@@ -27,7 +27,25 @@ export const createProject = async (req: AuthRequest, res: Response) => {
             status: normalizedStatus as 'ACTIVE' | 'INACTIVE'
         });
         res.status(201).json(newProject);
-    } catch (error) {
-        res.status(500).json({ message: 'Error creating project', error });
+    } catch (error: any) {
+        res.status(500).json({ message: 'Error creating project', error: error.message });
+    }
+};
+
+export const deleteProject = async (req: AuthRequest, res: Response) => {
+    try {
+        const id = parseInt(req.params.id as string);
+        if (isNaN(id)) {
+            return res.status(400).json({ message: 'Invalid project ID' });
+        }
+        
+        const success = await ProjectRepository.delete(id);
+        if (success) {
+            res.json({ message: 'Project deleted successfully' });
+        } else {
+            res.status(404).json({ message: 'Project not found' });
+        }
+    } catch (error: any) {
+        res.status(500).json({ message: 'Error deleting project', error: error.message });
     }
 };
