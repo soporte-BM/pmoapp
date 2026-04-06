@@ -187,18 +187,43 @@ export async function renderProjects(container) {
 
         const selects = document.querySelectorAll('.status-select');
         selects.forEach(select => {
-            select.addEventListener('change', (e) => {
+            select.addEventListener('change', async (e) => {
                 const id = e.target.getAttribute('data-id');
                 const newStatus = e.target.value;
                 const project = projects.find(p => p.id === id);
+                
                 if (project) {
-                    project.status = newStatus;
+                    const previousStatus = project.status;
+
+                    if (newStatus === 'Finalizado') {
+                        const confirmed = confirm(`¿Está seguro de que desea cambiar el estado a "Finalizado" para el proyecto "${project.name}"?`);
+                        if (!confirmed) {
+                            e.target.value = previousStatus;
+                            return;
+                        }
+                    }
+
+                    e.target.disabled = true;
+
                     try {
+                        await ApiService.updateProject(id, {
+                            project_code: project.code,
+                            name: project.name,
+                            manager: project.manager || '',
+                            status: newStatus === 'Finalizado' ? 'INACTIVE' : 'ACTIVE'
+                        });
+
+                        project.status = newStatus;
                         StorageService.saveProject(project);
                     } catch (error) {
-                        alert('Error al guardar el estado: ' + error.message);
-                        projects = StorageService.getProjects();
-                        render();
+                        alert('Error al guardar el estado en el servidor: ' + error.message);
+                        e.target.value = previousStatus;
+                        project.status = previousStatus;
+                    } finally {
+                        e.target.disabled = false;
+                        if (currentFilter !== 'Todos' && currentFilter !== newStatus) {
+                            render();
+                        }
                     }
                 }
             });

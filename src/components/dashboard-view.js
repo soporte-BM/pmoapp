@@ -8,6 +8,8 @@ export async function renderDashboard(container, options = {}) {
         projectFilter = 'all', 
         calcMode = 'accumulated', // 'accumulated' or 'punctual'
         showAllProjects = false,
+        startDate = '',
+        endDate = '',
         skipFetch = false
     } = options;
 
@@ -175,6 +177,16 @@ export async function renderDashboard(container, options = {}) {
                     </select>
                 </div>
 
+                <div style="display: flex; gap: 10px; align-items: center;">
+                    <label for="dash-start-date" style="font-weight: 500; color: #4b5563;">Desde:</label>
+                    <input type="month" id="dash-start-date" class="form-input" style="width: auto;" value="${startDate}">
+                </div>
+                
+                <div style="display: flex; gap: 10px; align-items: center;">
+                    <label for="dash-end-date" style="font-weight: 500; color: #4b5563;">Hasta:</label>
+                    <input type="month" id="dash-end-date" class="form-input" style="width: auto;" value="${endDate}">
+                </div>
+
                 <div style="flex-grow: 1; display: flex; justify-content: flex-end;">
                     <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; color: #4b5563; font-weight: 500;">
                         <input type="checkbox" id="toggle-all-projects" ${showAllProjects ? 'checked' : ''}>
@@ -270,12 +282,43 @@ export async function renderDashboard(container, options = {}) {
     `;
 
     container.innerHTML = html;
-    initCharts([...validRealEntries, ...validProjEntries], calcMode);
+    
+    // Convert period to an absolute month value for comparison
+    const getPeriodValueSafe = (periodStr) => {
+        if (!periodStr) return 0;
+        const [m, yStr] = periodStr.split('-');
+        let y = parseInt(yStr);
+        if (y < 100) y += 2000;
+        return y * 12 + MONTHS_ORDER[m];
+    };
+
+    const getIsoMonthValue = (isoString) => {
+        if (!isoString) return 0;
+        const [y, m] = isoString.split('-');
+        return parseInt(y) * 12 + (parseInt(m) - 1);
+    };
+
+    let chartEntries = [...validRealEntries, ...validProjEntries];
+    
+    if (startDate || endDate) {
+        let startVal = startDate ? getIsoMonthValue(startDate) : 0;
+        let endVal = endDate ? getIsoMonthValue(endDate) : Infinity;
+        
+        chartEntries = chartEntries.filter(e => {
+            const pv = getPeriodValueSafe(e.month);
+            return pv >= startVal && pv <= endVal;
+        });
+    }
+
+    initCharts(chartEntries, calcMode);
 
     const getOptions = () => ({
         projectFilter: document.getElementById('dash-project-filter').value,
         calcMode: document.getElementById('dash-calc-mode').value,
-        showAllProjects: document.getElementById('toggle-all-projects').checked
+        showAllProjects: document.getElementById('toggle-all-projects').checked,
+        startDate: document.getElementById('dash-start-date').value,
+        endDate: document.getElementById('dash-end-date').value,
+        skipFetch: true // prevent re-fetching on local filter changes
     });
 
     const addListener = (id) => {
@@ -286,6 +329,8 @@ export async function renderDashboard(container, options = {}) {
     addListener('dash-project-filter');
     addListener('dash-calc-mode');
     addListener('toggle-all-projects');
+    addListener('dash-start-date');
+    addListener('dash-end-date');
 }
 
 function initCharts(allEntries, calcMode) {

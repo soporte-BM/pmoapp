@@ -37,6 +37,15 @@ export const ApiService = {
         return handleResponse(response);
     },
 
+    updateProject: async (id, projectData) => {
+        const response = await fetch(`${API_BASE_URL}/projects/${id}`, {
+            method: 'PUT',
+            headers: getHeaders(),
+            body: JSON.stringify(projectData)
+        });
+        return handleResponse(response);
+    },
+
     // Resources
     getResources: async () => {
         const response = await fetch(`${API_BASE_URL}/resources`, { headers: getHeaders() });
