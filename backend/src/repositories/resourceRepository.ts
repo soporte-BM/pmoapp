@@ -34,4 +34,22 @@ export const ResourceRepository = {
       `);
         return result.recordset[0];
     },
+
+    update: async (id: number, newName: string): Promise<void> => {
+        const pool = getPool();
+        // Evitamos inyección cambiando solo si no existe otro con ese nombre o si es el mismo
+        await pool.request()
+            .input('id', sql.Int, id)
+            .input('name', sql.VarChar, newName)
+            .query(`
+        IF NOT EXISTS (SELECT 1 FROM Resources WHERE resource_name = @name AND id != @id)
+        BEGIN
+            UPDATE Resources SET resource_name = @name, updated_at = GETDATE() WHERE id = @id
+        END
+        ELSE
+        BEGIN
+            THROW 50000, 'Otro recurso ya tiene el mismo nombre', 1;
+        END
+      `);
+    }
 };

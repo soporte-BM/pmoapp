@@ -48,7 +48,7 @@ export async function renderResources(container) {
                         <div style="display: flex; gap: 10px; align-items: center; margin-left: 20px; border-left: 1px solid #e5e7eb; padding-left: 20px;">
                             <label for="view-mode-select" style="font-weight: 500; font-size: 0.95em; color: #4b5563;">Filtro por:</label>
                             <select id="view-mode-select" class="form-input" style="width: auto; padding: 6px 12px;">
-                                <option value="plana" ${currentViewMode === 'plana' ? 'selected' : ''}>Vista Plana</option>
+                                <option value="plana" ${currentViewMode === 'plana' ? 'selected' : ''}>Vista Completa</option>
                                 <option value="mensual" ${currentViewMode === 'mensual' ? 'selected' : ''}>Agrupar por Periodo</option>
                             </select>
                             ${currentViewMode === 'mensual' ? `
@@ -93,8 +93,8 @@ export async function renderResources(container) {
                                                 <td style="padding: 12px; text-align: right;">${formatCurrency(p.indirectRate)}</td>
                                                 <td style="padding: 12px; text-align: right;"><strong>${formatCurrency(beRate)}</strong></td>
                                                 <td style="padding: 12px; text-align: center;">
-                                                    <button class="btn-edit-pro" data-id="${p.id}" style="background: none; border: none; cursor: pointer; font-size: 1.2rem;" title="Editar Profesional">✏️</button>
-                                                    <button class="btn-delete-pro" data-id="${p.id}" style="background: none; border: none; cursor: pointer; font-size: 1.2rem; color: #dc2626;" title="Eliminar Profesional">🗑️</button>
+                                                    <button class="btn-edit-pro" data-id="${p.id}" data-period="${p.period}" style="background: none; border: none; cursor: pointer; font-size: 1.2rem;" title="Editar Profesional">✏️</button>
+                                                    <button class="btn-delete-pro" data-id="${p.id}" data-period="${p.period}" style="background: none; border: none; cursor: pointer; font-size: 1.2rem; color: #dc2626;" title="Eliminar Profesional">🗑️</button>
                                                 </td>
                                             </tr>
                                         `;
@@ -140,8 +140,8 @@ export async function renderResources(container) {
                                                         <td style="padding: 12px; text-align: right;">${formatCurrency(p.indirectRate)}</td>
                                                         <td style="padding: 12px; text-align: right;"><strong>${formatCurrency(beRate)}</strong></td>
                                                         <td style="padding: 12px; text-align: center;">
-                                                            <button class="btn-edit-pro" data-id="${p.id}" style="background: none; border: none; cursor: pointer; font-size: 1.2rem;" title="Editar Profesional">✏️</button>
-                                                            <button class="btn-delete-pro" data-id="${p.id}" style="background: none; border: none; cursor: pointer; font-size: 1.2rem; color: #dc2626;" title="Eliminar Profesional">🗑️</button>
+                                                            <button class="btn-edit-pro" data-id="${p.id}" data-period="${p.period}" style="background: none; border: none; cursor: pointer; font-size: 1.2rem;" title="Editar Profesional">✏️</button>
+                                                            <button class="btn-delete-pro" data-id="${p.id}" data-period="${p.period}" style="background: none; border: none; cursor: pointer; font-size: 1.2rem; color: #dc2626;" title="Eliminar Profesional">🗑️</button>
                                                         </td>
                                                     </tr>
                                                 `;
@@ -362,9 +362,10 @@ export async function renderResources(container) {
 
         const editBtns = document.querySelectorAll('.btn-edit-pro');
         editBtns.forEach(btn => {
-            btn.addEventListener('click', (e) => {
+            btn.addEventListener('click', async (e) => {
                 const id = e.target.closest('button').dataset.id;
-                const pro = professionals.find(p => p.id === id);
+                const srcPeriod = e.target.closest('button').dataset.period;
+                const pro = professionals.find(p => p.id === id && p.period === srcPeriod);
                 if(!pro) return;
                 
                 const newName = prompt('Nombre del profesional:', pro.name);
@@ -393,30 +394,77 @@ export async function renderResources(container) {
                     return;
                 }
 
-                StorageService.saveProfessional({
-                    ...pro,
-                    name: newName.trim(),
-                    period: parsedPeriod,
-                    directRate: Number(newDirectRate),
-                    indirectRate: Number(newIndirectRate)
-                });
-                
-                professionals = StorageService.getProfessionals();
-                render();
+                try {
+                    // Update Name if changed
+                    if (newName.trim() !== pro.name) {
+                        await ApiService.updateResource(pro.id, { resource_name: newName.trim() });
+                    }
+                    
+                    // Period changed -> new period + delete old period
+                    if (parsedPeriod !== pro.period) {
+                        await ApiService.saveRates(parsedPeriod, [{
+                            resourceName: newName.trim(),
+                            directRate: Number(newDirectRate),
+                            indirectRate: Number(newIndirectRate)
+                        }]);
+                        await ApiService.deleteRate(pro.id, pro.period);
+                    } else {
+                        // Same period, just update rates
+                        await ApiService.saveRates(parsedPeriod, [{
+                            resourceName: newName.trim(),
+                            directRate: Number(newDirectRate),
+                            indirectRate: Number(newIndirectRate)
+                        }]);
+                    }
+
+                    alert('Registro Actualizado en BD (Azure).');
+
+                    // Synchronize with Azure DB
+                    const ratesResult = await ApiService.getAllRates();
+                    const mappedPros = ratesResult.map(rr => ({
+                        id: String(rr.resource_id),
+                        name: rr.resource_name,
+                        period: rr.period,
+                        directRate: Number(rr.direct_rate) || 0,
+                        indirectRate: Number(rr.indirect_rate) || 0
+                    }));
+                    StorageService.saveProfessionalsBulk(mappedPros);
+                    professionals = StorageService.getProfessionals();
+                    render();
+                } catch (err) {
+                    alert('Error guardando en Azure: ' + err.message);
+                }
             });
         });
 
         const deleteBtns = document.querySelectorAll('.btn-delete-pro');
         deleteBtns.forEach(btn => {
-            btn.addEventListener('click', (e) => {
+            btn.addEventListener('click', async (e) => {
                 const id = e.target.closest('button').dataset.id;
-                if(confirm('¿Estás seguro de eliminar este profesional?')) {
+                // Wait, if there are multiple periods, getting by id will return the FIRST one. We need the exact period.
+                // The dataset only has id. Let's add dataset.period to the button or just infer it from the row? 
+                // Since clicking delete button from a row has a specific period context... Wait! `professionals.find(p => p.id === id)` could find the wrong period if there are many rates for a resource!
+                // We must use the period. The HTML generation needs dataset-period!
+                const period = e.target.closest('button').dataset.period;
+                
+                if(confirm('¿Estás seguro de eliminar este profesional para este periodo?')) {
                     try {
-                        StorageService.deleteProfessional(id);
+                        await ApiService.deleteRate(id, period);
+                        alert('Operación validada en Azure. Registro eliminado.');
+                        
+                        const ratesResult = await ApiService.getAllRates();
+                        const mappedPros = ratesResult.map(rr => ({
+                            id: String(rr.resource_id),
+                            name: rr.resource_name,
+                            period: rr.period,
+                            directRate: Number(rr.direct_rate) || 0,
+                            indirectRate: Number(rr.indirect_rate) || 0
+                        }));
+                        StorageService.saveProfessionalsBulk(mappedPros);
                         professionals = StorageService.getProfessionals();
                         render();
                     } catch(err) {
-                        alert(err.message);
+                        alert('Error al borrar en Azure: ' + err.message);
                     }
                 }
             });

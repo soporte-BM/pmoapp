@@ -109,4 +109,13 @@ export const RateRepository = {
     },
 
     // Batch upsert could be optimized but loop for now is safer for transaction logic simplicity in this context
+
+    deleteRate: async (resourceId: number, period: string) => {
+        const pool = getPool();
+        const sqlDate = parsePeriodToSqlDate(period);
+        await pool.request()
+            .input('resource_id', sql.Int, resourceId)
+            .input('period', sql.Date, sqlDate)
+            .query('DELETE FROM ResourceMonthlyRates WHERE resource_id = @resource_id AND period = @period');
+    }
 };

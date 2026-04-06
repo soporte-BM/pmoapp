@@ -51,6 +51,15 @@ export const ApiService = {
         return handleResponse(response);
     },
 
+    updateResource: async (id, resourceData) => {
+        const response = await fetch(`${API_BASE_URL}/resources/${id}`, {
+            method: 'PUT',
+            headers: getHeaders(),
+            body: JSON.stringify(resourceData)
+        });
+        return handleResponse(response);
+    },
+
     // Rates
     getAllRates: async () => {
         const response = await fetch(`${API_BASE_URL}/rates/all`, { headers: getHeaders() });
@@ -67,6 +76,14 @@ export const ApiService = {
             method: 'POST',
             headers: getHeaders(),
             body: JSON.stringify({ period, rates })
+        });
+        return handleResponse(response);
+    },
+
+    deleteRate: async (id, period) => {
+        const response = await fetch(`${API_BASE_URL}/rates/${id}?period=${period}`, {
+            method: 'DELETE',
+            headers: getHeaders()
         });
         return handleResponse(response);
     },

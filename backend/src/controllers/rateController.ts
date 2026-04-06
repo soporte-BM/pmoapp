@@ -48,3 +48,17 @@ export const saveRates = async (req: AuthRequest, res: Response) => {
         res.status(500).json({ message: 'Error saving rates', error });
     }
 };
+
+export const deleteRate = async (req: AuthRequest, res: Response) => {
+    try {
+        const { id } = req.params;
+        const { period } = req.query;
+        if (!id || !period) {
+            return res.status(400).json({ message: 'Missing id or period' });
+        }
+        await RateRepository.deleteRate(Number(id), period as string);
+        res.json({ message: 'Rate deleted successfully' });
+    } catch (error: any) {
+        res.status(500).json({ message: 'Error deleting rate', error: error.message });
+    }
+};
