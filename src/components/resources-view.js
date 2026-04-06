@@ -23,6 +23,7 @@ export async function renderResources(container) {
     let professionals = StorageService.getProfessionals();
 
     let currentViewMode = 'plana';
+    let expandedGroups = new Set();
 
     const MONTHS_ORDER = {
         'ene': 0, 'feb': 1, 'mar': 2, 'abr': 3, 'may': 4, 'jun': 5,
@@ -45,11 +46,15 @@ export async function renderResources(container) {
                     <div style="display: flex; gap: 15px; align-items: center;">
                         <h2 style="margin: 0; color: #111827;">Maestro de Profesionales</h2>
                         <div style="display: flex; gap: 10px; align-items: center; margin-left: 20px; border-left: 1px solid #e5e7eb; padding-left: 20px;">
-                            <label for="view-mode-select" style="font-weight: 500; font-size: 0.95em; color: #4b5563;">Agrupación:</label>
+                            <label for="view-mode-select" style="font-weight: 500; font-size: 0.95em; color: #4b5563;">Filtro por:</label>
                             <select id="view-mode-select" class="form-input" style="width: auto; padding: 6px 12px;">
                                 <option value="plana" ${currentViewMode === 'plana' ? 'selected' : ''}>Vista Plana</option>
                                 <option value="mensual" ${currentViewMode === 'mensual' ? 'selected' : ''}>Agrupar por Periodo</option>
                             </select>
+                            ${currentViewMode === 'mensual' ? `
+                                <button id="btn-expand-all" class="btn-secondary" style="padding: 6px 12px; margin-left: 10px;">Expandir todo</button>
+                                <button id="btn-collapse-all" class="btn-secondary" style="padding: 6px 12px;">Contraer todo</button>
+                            ` : ''}
                         </div>
                     </div>
                     <div style="display: flex; gap: 10px;">
@@ -111,31 +116,37 @@ export async function renderResources(container) {
                                         const groupPros = groups[key];
                                         groupPros.sort((a, b) => String(a.name).localeCompare(String(b.name)));
                                         
+                                        const isExpanded = expandedGroups.has(key);
+                                        const arrowIcon = isExpanded ? '▼' : '▶';
+
                                         html += `
-                                            <tr style="background: #f9fafb; border-bottom: 2px solid #e5e7eb;">
+                                            <tr class="group-header" data-period="${key}" style="background: #f9fafb; border-bottom: 2px solid #e5e7eb; cursor: pointer; transition: background 0.2s;">
                                                 <td colspan="6" style="padding: 12px; color: #374151;">
+                                                    <span style="display: inline-block; width: 24px; text-align: center; color: #6b7280; font-size: 0.85em; font-family: monospace;">${arrowIcon}</span>
                                                     <strong style="text-transform: uppercase;">${formatPeriod(key)}</strong>
                                                     <span style="margin-left: 10px; font-weight: normal; color: #6b7280; font-size: 0.9em;">- ${groupPros.length} Profesional${groupPros.length !== 1 ? 'es' : ''}</span>
                                                 </td>
                                             </tr>
                                         `;
                                         
-                                        html += groupPros.map(p => {
-                                            const beRate = Number(p.directRate) + Number(p.indirectRate);
-                                            return `
-                                                <tr style="border-bottom: 1px solid #e5e7eb;">
-                                                    <td style="padding: 12px; padding-left: 24px;">${p.name}</td>
-                                                    <td style="padding: 12px;">${formatPeriod(p.period)}</td>
-                                                    <td style="padding: 12px; text-align: right;">${formatCurrency(p.directRate)}</td>
-                                                    <td style="padding: 12px; text-align: right;">${formatCurrency(p.indirectRate)}</td>
-                                                    <td style="padding: 12px; text-align: right;"><strong>${formatCurrency(beRate)}</strong></td>
-                                                    <td style="padding: 12px; text-align: center;">
-                                                        <button class="btn-edit-pro" data-id="${p.id}" style="background: none; border: none; cursor: pointer; font-size: 1.2rem;" title="Editar Profesional">✏️</button>
-                                                        <button class="btn-delete-pro" data-id="${p.id}" style="background: none; border: none; cursor: pointer; font-size: 1.2rem; color: #dc2626;" title="Eliminar Profesional">🗑️</button>
-                                                    </td>
-                                                </tr>
-                                            `;
-                                        }).join('');
+                                        if (isExpanded) {
+                                            html += groupPros.map(p => {
+                                                const beRate = Number(p.directRate) + Number(p.indirectRate);
+                                                return `
+                                                    <tr style="border-bottom: 1px solid #e5e7eb;">
+                                                        <td style="padding: 12px; padding-left: 40px;">${p.name}</td>
+                                                        <td style="padding: 12px;">${formatPeriod(p.period)}</td>
+                                                        <td style="padding: 12px; text-align: right;">${formatCurrency(p.directRate)}</td>
+                                                        <td style="padding: 12px; text-align: right;">${formatCurrency(p.indirectRate)}</td>
+                                                        <td style="padding: 12px; text-align: right;"><strong>${formatCurrency(beRate)}</strong></td>
+                                                        <td style="padding: 12px; text-align: center;">
+                                                            <button class="btn-edit-pro" data-id="${p.id}" style="background: none; border: none; cursor: pointer; font-size: 1.2rem;" title="Editar Profesional">✏️</button>
+                                                            <button class="btn-delete-pro" data-id="${p.id}" style="background: none; border: none; cursor: pointer; font-size: 1.2rem; color: #dc2626;" title="Eliminar Profesional">🗑️</button>
+                                                        </td>
+                                                    </tr>
+                                                `;
+                                            }).join('');
+                                        }
                                     });
                                     return html;
                                 }
@@ -158,6 +169,40 @@ export async function renderResources(container) {
                 render();
             });
         }
+
+        // Accordion Controls
+        const btnExpandAll = document.getElementById('btn-expand-all');
+        if (btnExpandAll) {
+            btnExpandAll.addEventListener('click', () => {
+                const uniquePeriods = new Set(professionals.map(p => p.period || 'Sin Periodo'));
+                expandedGroups = uniquePeriods;
+                render();
+            });
+        }
+
+        const btnCollapseAll = document.getElementById('btn-collapse-all');
+        if (btnCollapseAll) {
+            btnCollapseAll.addEventListener('click', () => {
+                expandedGroups.clear();
+                render();
+            });
+        }
+
+        const groupHeaders = document.querySelectorAll('.group-header');
+        groupHeaders.forEach(header => {
+            header.addEventListener('click', (e) => {
+                const period = e.currentTarget.getAttribute('data-period');
+                if (expandedGroups.has(period)) {
+                    expandedGroups.delete(period);
+                } else {
+                    expandedGroups.add(period);
+                }
+                render();
+            });
+            // Añadir hover effect minimalista
+            header.addEventListener('mouseenter', () => header.style.background = '#f3f4f6');
+            header.addEventListener('mouseleave', () => header.style.background = '#f9fafb');
+        });
 
         // Manual Add
         const btnNew = document.getElementById('btn-new-pro');
