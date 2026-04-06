@@ -3,8 +3,9 @@
 const API_BASE_URL = 'https://pmoapp-avbhckasgjbfcag4.brazilsouth-01.azurewebsites.net/api';
 const handleResponse = async (response) => {
     if (!response.ok) {
-        const error = await response.json().catch(() => ({ message: 'Unknown error' }));
-        throw new Error(error.message || `Request failed: ${response.status}`);
+        const payload = await response.json().catch(() => ({ message: 'Unknown error' }));
+        const details = payload.error ? ` - Detalles: ${payload.error}` : '';
+        throw new Error((payload.message || `Request failed: ${response.status}`) + details);
     }
     return response.json();
 };

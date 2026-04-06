@@ -365,7 +365,8 @@ export async function renderResources(container) {
             btn.addEventListener('click', async (e) => {
                 const id = e.target.closest('button').dataset.id;
                 const srcPeriod = e.target.closest('button').dataset.period;
-                const pro = professionals.find(p => p.id === id && p.period === srcPeriod);
+                const matchPeriod = (srcPeriod === 'undefined' || srcPeriod === 'null') ? null : srcPeriod;
+                const pro = professionals.find(p => p.id === id && (p.period === matchPeriod || String(p.period) === String(matchPeriod)));
                 if(!pro) return;
                 
                 const newName = prompt('Nombre del profesional:', pro.name);
@@ -447,9 +448,17 @@ export async function renderResources(container) {
                 // We must use the period. The HTML generation needs dataset-period!
                 const period = e.target.closest('button').dataset.period;
                 
-                if(confirm('¿Estás seguro de eliminar este profesional para este periodo?')) {
+                if (!period || period === 'undefined' || period === 'null') {
+                    alert('Error: Este profesional no tiene un periodo asignado válido para eliminar su tarifa. Si desea borrar al profesional completo, debe hacerse desde el nivel base.');
+                    return;
+                }
+                
+                // Formatear proactivamente por si el DOM lo ensució
+                const cleanPeriod = period.trim();
+
+                if(confirm(`¿Estás seguro de eliminar este profesional para el periodo ${cleanPeriod}?`)) {
                     try {
-                        await ApiService.deleteRate(id, period);
+                        await ApiService.deleteRate(id, cleanPeriod);
                         alert('Operación validada en Azure. Registro eliminado.');
                         
                         const ratesResult = await ApiService.getAllRates();
