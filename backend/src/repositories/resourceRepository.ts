@@ -51,5 +51,12 @@ export const ResourceRepository = {
             THROW 50000, 'Otro recurso ya tiene el mismo nombre', 1;
         END
       `);
+    },
+
+    softDelete: async (id: number): Promise<void> => {
+        const pool = getPool();
+        await pool.request()
+            .input('id', sql.Int, id)
+            .query(`UPDATE Resources SET status = 'INACTIVE', updated_at = GETDATE() WHERE id = @id`);
     }
 };

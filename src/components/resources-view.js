@@ -449,7 +449,26 @@ export async function renderResources(container) {
                 const period = e.target.closest('button').dataset.period;
                 
                 if (!period || period === 'undefined' || period === 'null') {
-                    alert('Error: Este profesional no tiene un periodo asignado válido para eliminar su tarifa. Si desea borrar al profesional completo, debe hacerse desde el nivel base.');
+                    if (confirm(`El profesional no tiene una tarifa o un periodo válido. ¿Deseas eliminar al profesional por completo del sistema (Nivel Base)?`)) {
+                        try {
+                            await ApiService.deleteResourceBase(id);
+                            alert('Profesional eliminado completamente del sistema.');
+                            
+                            const ratesResult = await ApiService.getAllRates();
+                            const mappedPros = ratesResult.map(rr => ({
+                                id: String(rr.resource_id),
+                                name: rr.resource_name,
+                                period: rr.period,
+                                directRate: Number(rr.direct_rate) || 0,
+                                indirectRate: Number(rr.indirect_rate) || 0
+                            }));
+                            StorageService.saveProfessionalsBulk(mappedPros);
+                            professionals = StorageService.getProfessionals();
+                            render();
+                        } catch(err) {
+                            alert('Error al borrar desde Nivel Base: ' + err.message);
+                        }
+                    }
                     return;
                 }
                 

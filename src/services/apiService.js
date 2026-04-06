@@ -61,6 +61,14 @@ export const ApiService = {
         return handleResponse(response);
     },
 
+    deleteResourceBase: async (id) => {
+        const response = await fetch(`${API_BASE_URL}/resources/${id}`, {
+            method: 'DELETE',
+            headers: getHeaders()
+        });
+        return handleResponse(response);
+    },
+
     // Rates
     getAllRates: async () => {
         const response = await fetch(`${API_BASE_URL}/rates/all`, { headers: getHeaders() });

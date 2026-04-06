@@ -37,3 +37,16 @@ export const updateResource = async (req: AuthRequest, res: Response) => {
         res.status(500).json({ message: 'Error updating resource', error: error.message });
     }
 };
+
+export const deleteResource = async (req: AuthRequest, res: Response) => {
+    try {
+        const { id } = req.params;
+        if (!id) {
+            return res.status(400).json({ message: 'Missing resource id' });
+        }
+        await ResourceRepository.softDelete(Number(id));
+        res.json({ message: 'Resource soft deleted successfully' });
+    } catch (error: any) {
+        res.status(500).json({ message: 'Error deleting resource base', error: error.message });
+    }
+};
