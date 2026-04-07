@@ -83,13 +83,44 @@ export function renderEntryForm(container) {
             return;
         }
 
+        const tipoRegistroSelect = form.querySelector('[name="tipoRegistro"]');
+        const tipoRegistro = tipoRegistroSelect ? tipoRegistroSelect.value : 'REAL';
+
         // Find matching professional in DB exactly for that name and period
-        const pro = allProfessionals.find(p => p.name === nameSelect.value && p.period === month);
-        if (pro) {
-            const beRate = Number(pro.directRate) + Number(pro.indirectRate);
+        const exactPro = allProfessionals.find(p => p.name === nameSelect.value && p.period === month);
+        
+        if (exactPro) {
+            const beRate = Number(exactPro.directRate) + Number(exactPro.indirectRate);
             rateDisplayInput.value = formatCurrency(beRate);
             rateInput.value = beRate;
         } else {
+            if (tipoRegistro === 'PROYECCION') {
+                const monthIndexes = { 'ene':0, 'feb':1, 'mar':2, 'abr':3, 'may':4, 'jun':5, 'jul':6, 'ago':7, 'sep':8, 'oct':9, 'nov':10, 'dic':11 };
+                const getVal = (str) => {
+                    if (!str) return 0;
+                    const [m, y] = str.split('-');
+                    return parseInt(y) * 12 + monthIndexes[m];
+                };
+
+                const targetVal = getVal(month);
+                const pastPros = allProfessionals.filter(p => p.name === nameSelect.value && getVal(p.period) < targetVal);
+
+                if (pastPros.length > 0) {
+                    pastPros.sort((a, b) => getVal(b.period) - getVal(a.period));
+                    const fallbackPro = pastPros[0];
+                    const beRate = Number(fallbackPro.directRate) + Number(fallbackPro.indirectRate);
+                    rateDisplayInput.value = formatCurrency(beRate);
+                    rateInput.value = beRate;
+                    return;
+                } else {
+                    rateDisplayInput.value = '';
+                    rateInput.value = '';
+                    alert('No existe tarifa disponible para el profesional seleccionado');
+                    nameSelect.value = '';
+                    return;
+                }
+            }
+
             rateDisplayInput.value = '';
             rateInput.value = '';
             // Only alert if both are filled but not found to avoid annoying popups while typing
@@ -103,6 +134,15 @@ export function renderEntryForm(container) {
         const rows = list.querySelectorAll('.list-item');
         rows.forEach(updateRowRate);
     });
+
+    // Recalculate all rows when Tipo de Registro changes
+    const tipoRegistroSelect = form.querySelector('[name="tipoRegistro"]');
+    if (tipoRegistroSelect) {
+        tipoRegistroSelect.addEventListener('change', () => {
+            const rows = list.querySelectorAll('.list-item');
+            rows.forEach(updateRowRate);
+        });
+    }
 
     // Function to add a professional row
     const addProfessionalRow = () => {
@@ -136,6 +176,14 @@ export function renderEntryForm(container) {
         e.preventDefault();
         const formData = new FormData(form);
         const professionals = [];
+
+        const rawRevenue = formData.get('revenue');
+        const revenueNum = Number(rawRevenue);
+
+        if (!rawRevenue || String(rawRevenue).trim() === '' || !Number.isInteger(revenueNum) || revenueNum <= 0) {
+            alert('Ingreso Mensual debe ser un número entero positivo');
+            return;
+        }
 
         // Parse dynamic rows
         const names = formData.getAll('pro_name');

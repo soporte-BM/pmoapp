@@ -9,7 +9,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
     });
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.createResource = exports.getResources = void 0;
+exports.deleteResource = exports.updateResource = exports.createResource = exports.getResources = void 0;
 const resourceRepository_1 = require("../repositories/resourceRepository");
 const getResources = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
@@ -35,3 +35,32 @@ const createResource = (req, res) => __awaiter(void 0, void 0, void 0, function*
     }
 });
 exports.createResource = createResource;
+const updateResource = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    try {
+        const { id } = req.params;
+        const { resource_name } = req.body;
+        if (!id || !resource_name) {
+            return res.status(400).json({ message: 'Missing id or resource_name' });
+        }
+        yield resourceRepository_1.ResourceRepository.update(Number(id), resource_name);
+        res.json({ message: 'Resource name updated successfully' });
+    }
+    catch (error) {
+        res.status(500).json({ message: 'Error updating resource', error: error.message });
+    }
+});
+exports.updateResource = updateResource;
+const deleteResource = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    try {
+        const { id } = req.params;
+        if (!id) {
+            return res.status(400).json({ message: 'Missing resource id' });
+        }
+        yield resourceRepository_1.ResourceRepository.softDelete(Number(id));
+        res.json({ message: 'Resource soft deleted successfully' });
+    }
+    catch (error) {
+        res.status(500).json({ message: 'Error deleting resource base', error: error.message });
+    }
+});
+exports.deleteResource = deleteResource;

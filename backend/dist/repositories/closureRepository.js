@@ -207,8 +207,8 @@ exports.ClosureRepository = {
                     .input('closure_id', mssql_1.default.Int, closureId)
                     .input('resource_id', mssql_1.default.Int, resourceId)
                     .input('hours', mssql_1.default.Decimal(10, 2), line.hours)
-                    .input('direct', mssql_1.default.Decimal(10, 2), directRate)
-                    .input('indirect', mssql_1.default.Decimal(10, 2), indirectRate)
+                    .input('direct', mssql_1.default.Decimal(15, 2), directRate)
+                    .input('indirect', mssql_1.default.Decimal(15, 2), indirectRate)
                     .query(`
                     INSERT INTO ClosureResourceHours (closure_id, resource_id, hours, rate_snapshot_direct, rate_snapshot_indirect)
                     VALUES (@closure_id, @resource_id, @hours, @direct, @indirect)

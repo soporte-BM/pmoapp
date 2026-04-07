@@ -9,7 +9,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
     });
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.saveRates = exports.getRates = exports.getAllRates = void 0;
+exports.deleteRate = exports.saveRates = exports.getRates = exports.getAllRates = void 0;
 const rateRepository_1 = require("../repositories/rateRepository");
 const getAllRates = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
@@ -58,3 +58,18 @@ const saveRates = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     }
 });
 exports.saveRates = saveRates;
+const deleteRate = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    try {
+        const { id } = req.params;
+        const { period } = req.query;
+        if (!id || !period) {
+            return res.status(400).json({ message: 'Missing id or period' });
+        }
+        yield rateRepository_1.RateRepository.deleteRate(Number(id), period);
+        res.json({ message: 'Rate deleted successfully' });
+    }
+    catch (error) {
+        res.status(500).json({ message: 'Error deleting rate', error: error.message });
+    }
+});
+exports.deleteRate = deleteRate;

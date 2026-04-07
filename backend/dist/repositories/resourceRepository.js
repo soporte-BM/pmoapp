@@ -40,4 +40,27 @@ exports.ResourceRepository = {
       `);
         return result.recordset[0];
     }),
+    update: (id, newName) => __awaiter(void 0, void 0, void 0, function* () {
+        const pool = (0, db_1.getPool)();
+        // Evitamos inyección cambiando solo si no existe otro con ese nombre o si es el mismo
+        yield pool.request()
+            .input('id', mssql_1.default.Int, id)
+            .input('name', mssql_1.default.VarChar, newName)
+            .query(`
+        IF NOT EXISTS (SELECT 1 FROM Resources WHERE resource_name = @name AND id != @id)
+        BEGIN
+            UPDATE Resources SET resource_name = @name, updated_at = GETDATE() WHERE id = @id
+        END
+        ELSE
+        BEGIN
+            THROW 50000, 'Otro recurso ya tiene el mismo nombre', 1;
+        END
+      `);
+    }),
+    softDelete: (id) => __awaiter(void 0, void 0, void 0, function* () {
+        const pool = (0, db_1.getPool)();
+        yield pool.request()
+            .input('id', mssql_1.default.Int, id)
+            .query(`UPDATE Resources SET status = 'INACTIVE', updated_at = GETDATE() WHERE id = @id`);
+    })
 };

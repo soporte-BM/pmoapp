@@ -108,4 +108,12 @@ exports.RateRepository = {
         }
     }),
     // Batch upsert could be optimized but loop for now is safer for transaction logic simplicity in this context
+    deleteRate: (resourceId, period) => __awaiter(void 0, void 0, void 0, function* () {
+        const pool = (0, db_1.getPool)();
+        const sqlDate = parsePeriodToSqlDate(period);
+        yield pool.request()
+            .input('resource_id', mssql_1.default.Int, resourceId)
+            .input('period', mssql_1.default.Date, sqlDate)
+            .query('DELETE FROM ResourceMonthlyRates WHERE resource_id = @resource_id AND period = @period');
+    })
 };

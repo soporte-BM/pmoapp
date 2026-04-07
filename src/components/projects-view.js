@@ -551,6 +551,14 @@ export async function renderProjects(container) {
         });
 
         document.getElementById('btn-save-edit').addEventListener('click', () => {
+            const rawRevenue = document.getElementById('edit-revenue').value;
+            const revenueNum = Number(rawRevenue);
+
+            if (!rawRevenue || String(rawRevenue).trim() === '' || !Number.isInteger(revenueNum) || revenueNum <= 0) {
+                alert('Ingreso Mensual debe ser un número entero positivo');
+                return;
+            }
+
             const entryId = selectPeriod.value;
             const entry = projectEntries.find(e => e.id === entryId);
             

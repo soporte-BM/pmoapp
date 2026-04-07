@@ -8,4 +8,5 @@ router.use(auth_1.authMiddleware);
 router.get('/all', rateController_1.getAllRates);
 router.get('/', rateController_1.getRates);
 router.post('/', (0, auth_1.requireRole)('Admin', 'PMO'), rateController_1.saveRates);
+router.delete('/:id', (0, auth_1.requireRole)('Admin', 'PMO'), rateController_1.deleteRate);
 exports.default = router;
