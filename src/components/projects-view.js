@@ -602,6 +602,12 @@ export async function renderProjects(container) {
         const file = e.target.files[0];
         if (!file) return;
 
+        const btnImportExcel = document.getElementById('btn-import-excel');
+        if (btnImportExcel) {
+            btnImportExcel.innerHTML = '⏳ Procesando...';
+            btnImportExcel.disabled = true;
+        }
+
         const reader = new FileReader();
         reader.onload = async (evt) => {
             try {
@@ -792,6 +798,12 @@ export async function renderProjects(container) {
             } catch (err) {
                 console.error(err);
                 alert('Ocurrió un error al procesar el archivo Excel: ' + err.message);
+            } finally {
+                const btnImportExcelInner = document.getElementById('btn-import-excel');
+                if (btnImportExcelInner) {
+                    btnImportExcelInner.innerHTML = '⬇️ Importar Excel';
+                    btnImportExcelInner.disabled = false;
+                }
             }
         };
         reader.readAsBinaryString(file);

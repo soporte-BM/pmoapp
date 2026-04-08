@@ -268,8 +268,14 @@ export async function renderResources(container) {
                 const file = e.target.files[0];
                 if (!file) return;
 
+                const btnImportExcel = document.getElementById('btn-import-excel');
+                if (btnImportExcel) {
+                    btnImportExcel.innerHTML = '⏳ Procesando...';
+                    btnImportExcel.disabled = true;
+                }
+
                 const reader = new FileReader();
-                reader.onload = function(evt) {
+                reader.onload = async function(evt) {
                     try {
                         const data = evt.target.result;
                         // Assuming XLSX is available in global scope (via index.html)
@@ -317,7 +323,6 @@ export async function renderResources(container) {
                             }
                             
                             if (newPros.length > 0) {
-                                (async () => {
                                     try {
                                         const mappedPros = [];
                                         for (const pro of newPros) {
@@ -346,13 +351,17 @@ export async function renderResources(container) {
                                     } catch (apiErr) {
                                          alert('Error al guardar en base de datos: ' + apiErr.message);
                                     }
-                                })();
                             } else {
                                 alert('No se encontraron filas válidas en el Excel. Formato esperado: Nombre, Periodo, Tarifa Directa, Tarifa Indirecta.');
                             }
                         }
                     } catch (err) {
                         alert('Error al leer el archivo Excel: ' + err.message);
+                    } finally {
+                        if (btnImportExcel) {
+                            btnImportExcel.innerHTML = '📤 Importar Excel';
+                            btnImportExcel.disabled = false;
+                        }
                     }
                     fileInput.value = ''; // reset file input
                 };
