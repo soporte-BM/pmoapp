@@ -27,7 +27,7 @@ export function renderEntryForm(container) {
                 <div class="form-row">
                      <div class="form-group">
                         <label class="form-label">Ingreso Mensual (CLP)</label>
-                        <input type="number" name="revenue" class="form-input" required min="0" step="1000">
+                        <input type="number" name="revenue" class="form-input" step="any">
                     </div>
                      <div class="form-group">
                         <label class="form-label">Costos de Terceros</label>
