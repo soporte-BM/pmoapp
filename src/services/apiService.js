@@ -1,6 +1,9 @@
 // src/services/apiService.js
 
-const API_BASE_URL = 'https://pmoapp-avbhckasgjbfcag4.brazilsouth-01.azurewebsites.net/api';
+// const API_BASE_URL = 'https://pmoapp-avbhckasgjbfcag4.brazilsouth-01.azurewebsites.net/api';
+const API_BASE_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' 
+    ? 'http://localhost:3000/api' 
+    : 'https://pmoapp-avbhckasgjbfcag4.brazilsouth-01.azurewebsites.net/api';
 const handleResponse = async (response) => {
     if (!response.ok) {
         const payload = await response.json().catch(() => ({ message: 'Unknown error' }));
