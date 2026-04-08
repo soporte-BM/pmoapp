@@ -127,7 +127,10 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!user) return;
         document.getElementById('user-display-name').textContent = user.name;
         document.getElementById('user-display-role').textContent = user.role;
-        document.getElementById('user-avatar-initials').textContent = user.name.substring(0, 2).toUpperCase();
+        
+        let initials = user.name.substring(0, 2).toUpperCase();
+        if (user.name === 'Admin') initials = 'ADM';
+        document.getElementById('user-avatar-initials').textContent = initials;
     };
 
     const checkSession = () => {

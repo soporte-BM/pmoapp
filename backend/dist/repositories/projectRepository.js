@@ -47,4 +47,27 @@ exports.ProjectRepository = {
       `);
         return result.recordset[0];
     }),
+    delete: (id) => __awaiter(void 0, void 0, void 0, function* () {
+        const pool = (0, db_1.getPool)();
+        const transaction = new mssql_1.default.Transaction(pool);
+        try {
+            yield transaction.begin();
+            const request = new mssql_1.default.Request(transaction);
+            // Delete associated resource hours
+            yield request.query(`
+                DELETE FROM ClosureResourceHours 
+                WHERE closure_id IN (SELECT id FROM MonthlyClosures WHERE project_id = ${id})
+            `);
+            // Delete associated closures
+            yield request.query(`DELETE FROM MonthlyClosures WHERE project_id = ${id}`);
+            // Delete project
+            const result = yield request.query(`DELETE FROM Projects WHERE id = ${id}`);
+            yield transaction.commit();
+            return result.rowsAffected[0] > 0;
+        }
+        catch (error) {
+            yield transaction.rollback();
+            throw error;
+        }
+    }),
 };

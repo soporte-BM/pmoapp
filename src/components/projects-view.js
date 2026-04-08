@@ -239,22 +239,32 @@ export async function renderProjects(container) {
 
         const deleteBtns = document.querySelectorAll('.btn-delete-project');
         deleteBtns.forEach(btn => {
-            btn.addEventListener('click', (e) => {
+            btn.addEventListener('click', async (e) => {
                 const btnEl = e.target.closest('button');
                 const projectName = btnEl.dataset.name;
                 const projectId = btnEl.dataset.id;
                 
-                if (confirm(`¿Está seguro de que desea eliminar el proyecto "${projectName}"?`)) {
-                    const allProjects = StorageService.getProjects();
-                    const remaining = allProjects.filter(p => p.id !== projectId);
-                    sessionStorage.setItem('pmo_projects_v1', JSON.stringify(remaining));
-                    
-                    const allEntries = StorageService.getAllEntries();
-                    const remainingEntries = allEntries.filter(e => e.project !== projectName);
-                    sessionStorage.setItem('pmo_app_data_v1', JSON.stringify(remainingEntries));
-                    
-                    projects = remaining;
-                    render();
+                if (confirm(`¿Está seguro de que desea eliminar el proyecto "${projectName}" de la base de datos?\nEsta acción también eliminará todas sus proyecciones y costos asociados.`)) {
+                    btnEl.disabled = true;
+                    try {
+                        // Backend delete wrapper
+                        await ApiService.deleteProject(projectId);
+                        
+                        // Update local cache
+                        const allProjects = StorageService.getProjects();
+                        const remaining = allProjects.filter(p => p.id !== projectId);
+                        sessionStorage.setItem('pmo_projects_v1', JSON.stringify(remaining));
+                        
+                        const allEntries = StorageService.getAllEntries();
+                        const remainingEntries = allEntries.filter(e => e.project !== projectName);
+                        sessionStorage.setItem('pmo_app_data_v1', JSON.stringify(remainingEntries));
+                        
+                        projects = remaining;
+                        render();
+                    } catch (error) {
+                        alert('Error al intentar eliminar el proyecto: ' + error.message);
+                        btnEl.disabled = false;
+                    }
                 }
             });
         });
@@ -541,6 +551,14 @@ export async function renderProjects(container) {
         });
 
         document.getElementById('btn-save-edit').addEventListener('click', () => {
+            const rawRevenue = document.getElementById('edit-revenue').value;
+            const revenueNum = Number(rawRevenue);
+
+            if (!rawRevenue || String(rawRevenue).trim() === '' || !Number.isInteger(revenueNum) || revenueNum <= 0) {
+                alert('Ingreso Mensual debe ser un número entero positivo');
+                return;
+            }
+
             const entryId = selectPeriod.value;
             const entry = projectEntries.find(e => e.id === entryId);
             

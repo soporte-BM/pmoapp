@@ -44,4 +44,32 @@ export const ProjectRepository = {
       `);
         return result.recordset[0];
     },
+
+    delete: async (id: number): Promise<boolean> => {
+        const pool = getPool();
+        const transaction = new sql.Transaction(pool);
+        
+        try {
+            await transaction.begin();
+            const request = new sql.Request(transaction);
+            
+            // Delete associated resource hours
+            await request.query(`
+                DELETE FROM ClosureResourceHours 
+                WHERE closure_id IN (SELECT id FROM MonthlyClosures WHERE project_id = ${id})
+            `);
+            
+            // Delete associated closures
+            await request.query(`DELETE FROM MonthlyClosures WHERE project_id = ${id}`);
+            
+            // Delete project
+            const result = await request.query(`DELETE FROM Projects WHERE id = ${id}`);
+            
+            await transaction.commit();
+            return result.rowsAffected[0] > 0;
+        } catch (error) {
+            await transaction.rollback();
+            throw error;
+        }
+    },
 };

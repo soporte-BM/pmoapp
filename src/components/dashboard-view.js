@@ -511,10 +511,10 @@ function initCharts(allEntries, calcMode) {
     }
     
     if (devPeriod) {
-        const dev = ((devPeriod.rawProjProfit - devPeriod.rawRealProfit) / devPeriod.rawProjProfit) * 100;
+        const dev = ((devPeriod.rawRealProfit - devPeriod.rawProjProfit) / Math.abs(devPeriod.rawProjProfit)) * 100;
         let tipoWord = 'igual a';
-        if (dev > 0.1) tipoWord = 'bajo';
-        else if (dev < -0.1) tipoWord = 'sobre';
+        if (dev > 0.1) tipoWord = 'sobre';
+        else if (dev < -0.1) tipoWord = 'bajo';
 
         insights.push({
             title: 'Desviación de Margen',
@@ -708,7 +708,7 @@ function initCharts(allEntries, calcMode) {
                             
                             if ((data.realRev > 0 || data.realCost > 0) && (data.projRev > 0 || data.projCost > 0)) {
                                 if (data.rawProjProfit !== null && data.rawRealProfit !== null && data.rawProjProfit !== 0 && isFinite(data.rawProjProfit) && isFinite(data.rawRealProfit)) {
-                                    const dev = ((data.rawProjProfit - data.rawRealProfit) / data.rawProjProfit) * 100;
+                                    const dev = ((data.rawRealProfit - data.rawProjProfit) / Math.abs(data.rawProjProfit)) * 100;
                                     lines.push('--- COMPARATIVO ---');
                                     lines.push(`% Desviación: ${dev.toFixed(1)}%`);
                                 }
