@@ -216,18 +216,13 @@ export function renderEntryForm(container) {
         const allProjects = StorageService.getProjects();
         const codeMap = new Map(allProjects.map(p => [p.name, String(p.code).trim().toUpperCase()]));
 
-        const isDuplicate = allEntries.some(e => 
+        const existingEntry = allEntries.find(e => 
             codeMap.get(e.project) === projectCode && 
             e.month === parsedMonth && 
             (e.tipoRegistro || 'REAL') === tipoRegistro
         );
 
-        if (isDuplicate) {
-            alert('Registro duplicado: ya existe un proyecto con el mismo Código, Periodo y Status');
-            return;
-        }
-
-        const entry = {
+        const entryData = {
             project: projectName,
             month: parsedMonth,
             revenue: Number(formData.get('revenue')),
@@ -236,7 +231,19 @@ export function renderEntryForm(container) {
             professionals
         };
 
-        StorageService.saveEntry(entry);
+        if (existingEntry) {
+            if (tipoRegistro === 'REAL') {
+                alert('Registro duplicado: ya existe un proyecto con el mismo Código, Periodo y Status (REAL)');
+                return;
+            } else {
+                StorageService.updateEntry(existingEntry.id, entryData);
+                alert('Proyección actualizada correctamente');
+                window.location.reload();
+                return;
+            }
+        }
+
+        StorageService.saveEntry(entryData);
         alert('Registro ingresado correctamente');
         window.location.reload(); // Simple reload to go back to dashboard
     });
