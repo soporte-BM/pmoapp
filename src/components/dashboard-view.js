@@ -48,6 +48,18 @@ export async function renderDashboard(container, options = {}) {
             StorageService.saveEntriesBulk(mappedEntries);
         } catch (err) {
             console.error('Error sincronizando con Backend en Dashboard:', err);
+            // Only alert if there is no local cache yet (meaning it's probably a cold start failure)
+            if (!sessionStorage.getItem('pmo_projects_v1')) {
+                container.innerHTML = `
+                    <div style="padding:40px; text-align:center; color:#b91c1c;">
+                        <h2>Error de Conexión</h2>
+                        <p>No se pudo conectar con el servidor.</p>
+                        <p><strong>Nota:</strong> Como el sistema está alojado en la nube (Azure), si ha pasado mucho tiempo sin uso, el servidor entra en Standby por ahorro de energía.</p>
+                        <p><strong>Por favor, espere 15 segundos y <a href="#" onclick="window.location.reload()" style="color:#2a7fde; font-weight:bold;">recargue la página</a>.</strong></p>
+                    </div>
+                `;
+                return; // Stop rendering the rest of the empty dashboard
+            }
         }
     }
 

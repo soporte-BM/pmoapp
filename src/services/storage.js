@@ -4,51 +4,13 @@ const STORAGE_KEY = 'pmo_app_data_v1';
 const PROJECT_STORAGE_KEY = 'pmo_projects_v1';
 const PRO_STORAGE_KEY = 'pmo_professionals_v1';
 
-const MOCK_DATA = [
-    {
-        id: '1',
-        project: 'Transformación Digital Banco X',
-        month: '2023-10',
-        revenue: 45000,
-        professionals: [
-            { name: 'Juan P.', hours: 160, rate: 80 },
-            { name: 'Ana M.', hours: 150, rate: 90 }
-        ],
-        thirdPartyCosts: 2000
-    },
-    {
-        id: '2',
-        project: 'Migración SAP Retail Y',
-        month: '2023-10',
-        revenue: 80000,
-        professionals: [
-            { name: 'Carlos S.', hours: 170, rate: 100 },
-            { name: 'Elena R.', hours: 160, rate: 110 },
-            { name: 'Junior 1', hours: 160, rate: 40 }
-        ],
-        thirdPartyCosts: 5000
-    },
-    {
-        id: '3',
-        project: 'Asesoría Agile Telco Z',
-        month: '2023-10',
-        revenue: 12000,
-        professionals: [
-            { name: 'Coach 1', hours: 100, rate: 110 }
-        ],
-        thirdPartyCosts: 0
-    }
-];
+
 
 export const StorageService = {
     getAllEntries: () => {
         const data = sessionStorage.getItem(STORAGE_KEY);
         let entries = [];
-        if (!data) {
-            // Initialize with mock data for first run
-            entries = MOCK_DATA;
-            sessionStorage.setItem(STORAGE_KEY, JSON.stringify(entries));
-        } else {
+        if (data) {
             entries = JSON.parse(data);
         }
         
@@ -100,17 +62,7 @@ export const StorageService = {
     getProjects: () => {
         const data = sessionStorage.getItem(PROJECT_STORAGE_KEY);
         if (!data) {
-            // Initialize from existing entries if any
-            const entries = StorageService.getAllEntries();
-            const uniqueProjects = [...new Set(entries.map(e => e.project))];
-            const initialProjects = uniqueProjects.map((name, index) => ({
-                id: `p_${Date.now()}_${index}`,
-                code: `PRJ-${String(index + 1).padStart(3, '0')}`,
-                name: name,
-                status: 'Activo'
-            }));
-            sessionStorage.setItem(PROJECT_STORAGE_KEY, JSON.stringify(initialProjects));
-            return initialProjects;
+            return [];
         }
         return JSON.parse(data);
     },
