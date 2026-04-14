@@ -550,7 +550,7 @@ export async function renderProjects(container) {
             modalOverlay.classList.add('hidden');
         });
 
-        document.getElementById('btn-save-edit').addEventListener('click', () => {
+        document.getElementById('btn-save-edit').addEventListener('click', async () => {
             const rawRevenue = document.getElementById('edit-revenue').value;
             const revenueNum = Number(rawRevenue);
 
@@ -582,18 +582,33 @@ export async function renderProjects(container) {
                 professionals: updatedPros
             };
 
+            const fullUpdatedEntry = { ...entry, ...updatedData };
+
             try {
+                const btnSave = document.getElementById('btn-save-edit');
+                if (btnSave) {
+                    btnSave.disabled = true;
+                    btnSave.textContent = 'Guardando...';
+                }
+
+                // Guardar en backend
+                await ApiService.saveEntry(fullUpdatedEntry);
+                
+                // Guardar en cache local
                 StorageService.updateEntry(entryId, updatedData);
                 alert('Registro actualizado exitosamente.');
                 modalContainer.classList.add('hidden');
                 modalOverlay.classList.add('hidden');
                 
-                // Actualizar interfaz principal
-                const updatedEntries = StorageService.getAllEntries();
-                // Recalcular métricas si fuera necesario (render ya lo hace)
-                render();
+                // Actualizar interfaz principal volviendo a cargar todo para recalcular
+                renderProjects(container);
             } catch (error) {
-                alert(error.message);
+                alert('Error al guardar en el servidor: ' + error.message);
+                const btnSave = document.getElementById('btn-save-edit');
+                if (btnSave) {
+                    btnSave.disabled = false;
+                    btnSave.textContent = 'Guardar Cambios';
+                }
             }
         });
     };
