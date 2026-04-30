@@ -163,6 +163,108 @@ export async function renderDashboard(container, options = {}) {
     const totalMargin = processedData.reduce((sum, e) => sum + e.margin, 0);
     const avgProfitability = totalRevenue > 0 ? (totalMargin / totalRevenue) * 100 : 0;
 
+    // --- KPI DESVIACIÓN CALCULATION ---
+    let kpiDeviationPercent = null;
+    let kpiDeviationCLP = null;
+    
+    const devPeriodsMap = new Map();
+    [...validRealEntries, ...validProjEntries].forEach(entry => {
+        const d = AnalyticsService.calculateMetrics(entry);
+        const tipoRegistro = entry.tipoRegistro || 'REAL';
+
+        if (!devPeriodsMap.has(d.month)) {
+            devPeriodsMap.set(d.month, { realRevenue: 0, realCost: 0, projRevenue: 0, projCost: 0 });
+        }
+        const current = devPeriodsMap.get(d.month);
+        
+        if (tipoRegistro === 'PROYECCION') {
+            current.projRevenue += d.revenue;
+            current.projCost += d.totalCost;
+        } else {
+            current.realRevenue += d.revenue;
+            current.realCost += d.totalCost;
+        }
+    });
+
+    const devSortedPeriods = Array.from(devPeriodsMap.keys()).sort((a, b) => {
+        const [monthA, yearA] = a.split('-');
+        const [monthB, yearB] = b.split('-');
+        const dateA = parseInt(yearA) * 12 + MONTHS_ORDER[monthA];
+        const dateB = parseInt(yearB) * 12 + MONTHS_ORDER[monthB];
+        return dateA - dateB;
+    });
+
+    let devFirstProjIndex = -1;
+    devSortedPeriods.forEach((p, idx) => {
+        const metrics = devPeriodsMap.get(p);
+        if (metrics.projRevenue > 0 || metrics.projCost > 0) {
+            if (devFirstProjIndex === -1) {
+                devFirstProjIndex = idx;
+            }
+        }
+    });
+
+    let devRunningRealRev = 0, devRunningRealCost = 0;
+    let devAccumulatedProjRev = 0, devAccumulatedProjCost = 0;
+    let lastComparableData = null;
+
+    devSortedPeriods.forEach((p, idx) => {
+        const originalMetrics = devPeriodsMap.get(p);
+        let activeRealRev = originalMetrics.realRevenue;
+        let activeRealCost = originalMetrics.realCost;
+        let activeProjRev = originalMetrics.projRevenue;
+        let activeProjCost = originalMetrics.projCost;
+
+        if (calcMode === 'accumulated') {
+            devRunningRealRev += originalMetrics.realRevenue;
+            devRunningRealCost += originalMetrics.realCost;
+            
+            if (devFirstProjIndex === -1 || idx < devFirstProjIndex) {
+                devAccumulatedProjRev = 0;
+                devAccumulatedProjCost = 0;
+            } else if (idx === devFirstProjIndex) {
+                const baseRealRev = devRunningRealRev - originalMetrics.realRevenue;
+                const baseRealCost = devRunningRealCost - originalMetrics.realCost;
+                devAccumulatedProjRev = baseRealRev + originalMetrics.projRevenue;
+                devAccumulatedProjCost = baseRealCost + originalMetrics.projCost;
+            } else {
+                devAccumulatedProjRev += originalMetrics.projRevenue;
+                devAccumulatedProjCost += originalMetrics.projCost;
+            }
+
+            activeRealRev = devRunningRealRev;
+            activeRealCost = devRunningRealCost;
+            activeProjRev = devAccumulatedProjRev;
+            activeProjCost = devAccumulatedProjCost;
+        }
+
+        const hasReal = originalMetrics.realRevenue > 0 || originalMetrics.realCost > 0;
+        let isProjActive = originalMetrics.projRevenue > 0 || originalMetrics.projCost > 0;
+        if (calcMode === 'accumulated') {
+            isProjActive = (devFirstProjIndex !== -1 && idx >= devFirstProjIndex);
+        }
+
+        if (hasReal && isProjActive) {
+            const realMargin = activeRealRev - activeRealCost;
+            const realProfit = activeRealRev > 0 ? (realMargin / activeRealRev) * 100 : 0;
+            
+            const projMargin = activeProjRev - activeProjCost;
+            const projProfit = activeProjRev > 0 ? (projMargin / activeProjRev) * 100 : 0;
+
+            lastComparableData = {
+                realProfit,
+                projProfit,
+                realRev: activeRealRev
+            };
+        }
+    });
+
+    if (lastComparableData) {
+        kpiDeviationPercent = lastComparableData.realProfit - lastComparableData.projProfit;
+        kpiDeviationCLP = lastComparableData.realRev * (kpiDeviationPercent / 100);
+    }
+    // --- END KPI CALCULATION ---
+
     // Insights renderizados dinámicamente por initCharts para mantener consistencia 100% con la visualización
 
     const html = `
@@ -220,8 +322,11 @@ export async function renderDashboard(container, options = {}) {
                     <span class="kpi-trend text-secondary">Objetivo: 20%</span>
                 </div>
                 <div class="kpi-card">
-                    <span class="kpi-title">Proyectos Activos</span>
-                    <span class="kpi-value">${activeProjectNames.size}</span>
+                    <span class="kpi-title">% Desviación</span>
+                    ${kpiDeviationPercent !== null ? `
+                    <span class="kpi-value">${kpiDeviationPercent.toFixed(1)}%</span>
+                    <span class="kpi-trend text-secondary" style="font-weight: normal;">Desviación: ${formatCurrency(Math.round(kpiDeviationCLP))}</span>
+                    ` : ''}
                 </div>
                 <div class="kpi-card danger">
                     <span class="kpi-title">En Riesgo (<10%)</span>
@@ -516,22 +621,20 @@ function initCharts(allEntries, calcMode) {
     let devPeriod = null;
     for (let i = tooltipData.length - 1; i >= 0; i--) {
         const d = tooltipData[i];
-        if (d.hasRealDot && d.hasProjDot && d.rawRealProfit !== null && d.rawProjProfit !== null && isFinite(d.rawRealProfit) && isFinite(d.rawProjProfit) && d.rawProjProfit !== 0) {
+        if (d.hasRealDot && d.hasProjDot && d.rawRealProfit !== null && d.rawProjProfit !== null && isFinite(d.rawRealProfit) && isFinite(d.rawProjProfit)) {
             devPeriod = d;
             break;
         }
     }
     
     if (devPeriod) {
-        const dev = ((devPeriod.rawRealProfit - devPeriod.rawProjProfit) / Math.abs(devPeriod.rawProjProfit)) * 100;
-        let tipoWord = 'igual a';
-        if (dev > 0.1) tipoWord = 'sobre';
-        else if (dev < -0.1) tipoWord = 'bajo';
+        const devPercent = devPeriod.rawRealProfit - devPeriod.rawProjProfit;
+        const devCLP = devPeriod.realRev * (devPercent / 100);
 
         insights.push({
             title: 'Desviación de Margen',
-            details: [`El resultado real está ${Math.abs(dev).toFixed(1)}% ${tipoWord} la proyección.`],
-            data: `(Desviación: ${dev.toFixed(1)}%)`
+            details: [`La diferencia entre la rentabilidad real y la proyectada es de ${devPercent.toFixed(1)} puntos porcentuales.`],
+            data: `(Desviación: ${new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP' }).format(Math.round(devCLP))})`
         });
     }
 
@@ -720,10 +823,12 @@ function initCharts(allEntries, calcMode) {
                             }
                             
                             if ((data.realRev > 0 || data.realCost > 0) && (data.projRev > 0 || data.projCost > 0)) {
-                                if (data.rawProjProfit !== null && data.rawRealProfit !== null && data.rawProjProfit !== 0 && isFinite(data.rawProjProfit) && isFinite(data.rawRealProfit)) {
-                                    const dev = ((data.rawRealProfit - data.rawProjProfit) / Math.abs(data.rawProjProfit)) * 100;
+                                if (data.rawProjProfit !== null && data.rawRealProfit !== null && isFinite(data.rawProjProfit) && isFinite(data.rawRealProfit)) {
+                                    const devPercent = data.rawRealProfit - data.rawProjProfit;
+                                    const devCLP = data.realRev * (devPercent / 100);
                                     lines.push('--- COMPARATIVO ---');
-                                    lines.push(`% Desviación: ${dev.toFixed(1)}%`);
+                                    lines.push(`% Desviación: ${devPercent.toFixed(1)}%`);
+                                    lines.push(`Monto Desviación: ${new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP' }).format(Math.round(devCLP))}`);
                                 }
                             }
 
