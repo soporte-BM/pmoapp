@@ -217,6 +217,7 @@ export async function renderDashboard(container, options = {}) {
                 <div class="kpi-card ${avgProfitability < 20 ? 'warning' : 'success'}">
                     <span class="kpi-title">Rentabilidad Global</span>
                     <span class="kpi-value">${formatPercent(avgProfitability)}</span>
+                    <span class="kpi-trend text-secondary" style="font-weight: normal;">Margen: ${formatCurrency(Math.round(totalRevenue * (avgProfitability / 100)))}</span>
                     <span class="kpi-trend text-secondary">Objetivo: 20%</span>
                 </div>
                 <div class="kpi-card">
