@@ -263,6 +263,35 @@ export async function renderDashboard(container, options = {}) {
         kpiDeviationPercent = lastComparableData.realProfit - lastComparableData.projProfit;
         kpiDeviationCLP = lastComparableData.realRev * (kpiDeviationPercent / 100);
     }
+
+    // --- KPI INGRESOS Y RENTABILIDAD CALCULATION ---
+    let kpiTotalRevenue = 0;
+    let kpiTotalMargin = 0;
+    let kpiAvgProfitability = 0;
+
+    let tempAccRealRev = 0;
+    let tempAccRealCost = 0;
+
+    devSortedPeriods.forEach((p) => {
+        const metrics = devPeriodsMap.get(p);
+        const hasReal = metrics.realRevenue > 0 || metrics.realCost > 0;
+        
+        tempAccRealRev += metrics.realRevenue;
+        tempAccRealCost += metrics.realCost;
+
+        if (hasReal) {
+            if (calcMode === 'accumulated') {
+                kpiTotalRevenue = tempAccRealRev;
+                kpiTotalMargin = tempAccRealRev - tempAccRealCost;
+            } else {
+                kpiTotalRevenue = metrics.realRevenue;
+                kpiTotalMargin = metrics.realRevenue - metrics.realCost;
+            }
+        }
+    });
+
+    kpiAvgProfitability = kpiTotalRevenue > 0 ? (kpiTotalMargin / kpiTotalRevenue) * 100 : 0;
+    // --- END KPI INGRESOS Y RENTABILIDAD CALCULATION ---
     // --- END KPI CALCULATION ---
 
     // Insights renderizados dinámicamente por initCharts para mantener consistencia 100% con la visualización
@@ -313,12 +342,12 @@ export async function renderDashboard(container, options = {}) {
             <div class="kpi-row">
                 <div class="kpi-card">
                     <span class="kpi-title">Ingresos Totales</span>
-                    <span class="kpi-value">${formatCurrency(totalRevenue)}</span>
+                    <span class="kpi-value">${formatCurrency(kpiTotalRevenue)}</span>
                 </div>
-                <div class="kpi-card ${avgProfitability < 20 ? 'warning' : 'success'}">
+                <div class="kpi-card ${kpiAvgProfitability < 20 ? 'warning' : 'success'}">
                     <span class="kpi-title">Rentabilidad Global</span>
-                    <span class="kpi-value">${formatPercent(avgProfitability)}</span>
-                    <span class="kpi-trend text-secondary" style="font-weight: normal;">Margen: ${formatCurrency(Math.round(totalRevenue * (avgProfitability / 100)))}</span>
+                    <span class="kpi-value">${formatPercent(kpiAvgProfitability)}</span>
+                    <span class="kpi-trend text-secondary" style="font-weight: normal;">Margen: ${formatCurrency(Math.round(kpiTotalMargin))}</span>
                     <span class="kpi-trend text-secondary">Objetivo: 20%</span>
                 </div>
                 <div class="kpi-card">
