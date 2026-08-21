@@ -141,9 +141,7 @@ exports.ClosureRepository = {
             let closureId;
             if (checkRes.recordset.length > 0) {
                 const existing = checkRes.recordset[0];
-                if (finalStatus === 'VALIDATED') {
-                    throw new Error('Cannot overwrite a VALIDATED closure');
-                }
+                // Permitir actualización de registros REAL (VALIDATED) modificados desde el listado
                 closureId = existing.id;
                 yield transaction.request()
                     .input('id', mssql_1.default.Int, closureId)
@@ -207,10 +205,11 @@ exports.ClosureRepository = {
                     }
                 }
                 // Optional: Block if rate is 0? For now allow, but maybe warn. DRAFT allows it.
+                const roundedHours = Math.round(Number(line.hours || 0) * 100) / 100;
                 yield transaction.request()
                     .input('closure_id', mssql_1.default.Int, closureId)
                     .input('resource_id', mssql_1.default.Int, resourceId)
-                    .input('hours', mssql_1.default.Decimal(10, 2), line.hours)
+                    .input('hours', mssql_1.default.Decimal(10, 2), roundedHours)
                     .input('direct', mssql_1.default.Decimal(15, 2), directRate)
                     .input('indirect', mssql_1.default.Decimal(15, 2), indirectRate)
                     .query(`

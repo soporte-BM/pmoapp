@@ -237,10 +237,11 @@ export const ClosureRepository = {
                 }
                 // Optional: Block if rate is 0? For now allow, but maybe warn. DRAFT allows it.
 
+                const roundedHours = Math.round(Number(line.hours || 0) * 100) / 100;
                 await transaction.request()
                     .input('closure_id', sql.Int, closureId)
                     .input('resource_id', sql.Int, resourceId)
-                    .input('hours', sql.Decimal(10, 2), line.hours)
+                    .input('hours', sql.Decimal(10, 2), roundedHours)
                     .input('direct', sql.Decimal(15, 2), directRate)
                     .input('indirect', sql.Decimal(15, 2), indirectRate)
                     .query(`

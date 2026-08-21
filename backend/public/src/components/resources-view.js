@@ -1,0 +1,512 @@
+import { StorageService } from '../services/storage.js';
+import { ApiService } from '../services/apiService.js';
+import { formatCurrency, formatPeriod, parsePeriodToMmmYy } from '../utils/format.js';
+
+export async function renderResources(container) {
+    container.innerHTML = '<div style="padding:20px; text-align:center;">Cargando datos desde el servidor...</div>';
+
+    try {
+        const ratesResult = await ApiService.getAllRates();
+        const mappedPros = ratesResult.map(rr => ({
+            id: String(rr.resource_id),
+            name: rr.resource_name,
+            period: rr.period,
+            directRate: Number(rr.direct_rate) || 0,
+            indirectRate: Number(rr.indirect_rate) || 0
+        }));
+
+        StorageService.saveProfessionalsBulk(mappedPros);
+    } catch (err) {
+        console.error('Error al sincronizar profesionales con el servidor:', err);
+    }
+
+    let professionals = StorageService.getProfessionals();
+
+    let currentViewMode = 'plana';
+    let expandedGroups = new Set();
+
+    const MONTHS_ORDER = {
+        'ene': 0, 'feb': 1, 'mar': 2, 'abr': 3, 'may': 4, 'jun': 5,
+        'jul': 6, 'ago': 7, 'sep': 8, 'oct': 9, 'nov': 10, 'dic': 11
+    };
+
+    const getPeriodValue = (period) => {
+        if (!period) return 0;
+        const parts = period.split('-');
+        if (parts.length === 2 && MONTHS_ORDER[parts[0]] !== undefined) {
+             return parseInt(parts[1]) * 12 + MONTHS_ORDER[parts[0]];
+        }
+        return 0;
+    };
+
+    const render = () => {
+        const html = `
+            <div class="projects-container">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                    <div style="display: flex; gap: 15px; align-items: center;">
+                        <h2 style="margin: 0; color: #111827;">Maestro de Profesionales</h2>
+                        <div style="display: flex; gap: 10px; align-items: center; margin-left: 20px; border-left: 1px solid #e5e7eb; padding-left: 20px;">
+                            <label for="view-mode-select" style="font-weight: 500; font-size: 0.95em; color: #4b5563;">Filtro por:</label>
+                            <select id="view-mode-select" class="form-input" style="width: auto; padding: 6px 12px;">
+                                <option value="plana" ${currentViewMode === 'plana' ? 'selected' : ''}>Vista Completa</option>
+                                <option value="mensual" ${currentViewMode === 'mensual' ? 'selected' : ''}>Agrupar por Periodo</option>
+                            </select>
+                            ${currentViewMode === 'mensual' ? `
+                                <button id="btn-expand-all" class="btn-secondary" style="padding: 6px 12px; margin-left: 10px;">Expandir todo</button>
+                                <button id="btn-collapse-all" class="btn-secondary" style="padding: 6px 12px;">Contraer todo</button>
+                            ` : ''}
+                        </div>
+                    </div>
+                    <div style="display: flex; gap: 10px;">
+                        <input type="file" id="excel-upload" accept=".xlsx, .xls" style="display: none;" />
+                        <button id="btn-import-excel" class="btn-secondary">📤 Importar Excel</button>
+                        <button id="btn-new-pro" class="btn-primary">+ Nuevo Profesional</button>
+                    </div>
+                </div>
+
+                <div class="table-container" style="background: white; border-radius: 8px; padding: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+                    <table class="data-table" style="width: 100%; border-collapse: collapse;">
+                        <thead>
+                            <tr style="border-bottom: 2px solid #e5e7eb; text-align: left;">
+                                <th style="padding: 12px; color: #6b7280;">Nombre</th>
+                                <th style="padding: 12px; color: #6b7280;">Periodo</th>
+                                <th style="padding: 12px; color: #6b7280; text-align: right;">Tarifa Directa</th>
+                                <th style="padding: 12px; color: #6b7280; text-align: right;">Tarifa Indirecta</th>
+                                <th style="padding: 12px; color: #6b7280; text-align: right;">Tarifa Break Even</th>
+                                <th style="padding: 12px; color: #6b7280; text-align: center;">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${(() => {
+                                if (professionals.length === 0) {
+                                    return '<tr><td colspan="6" style="text-align: center; padding: 20px; color: #6b7280;">No hay profesionales registrados. Use "Nuevo Profesional" o "Importar Excel".</td></tr>';
+                                }
+
+                                if (currentViewMode === 'plana') {
+                                    return professionals.map(p => {
+                                        const beRate = Number(p.directRate) + Number(p.indirectRate);
+                                        return `
+                                            <tr style="border-bottom: 1px solid #e5e7eb;">
+                                                <td style="padding: 12px;">${p.name}</td>
+                                                <td style="padding: 12px;">${formatPeriod(p.period)}</td>
+                                                <td style="padding: 12px; text-align: right;">${formatCurrency(p.directRate)}</td>
+                                                <td style="padding: 12px; text-align: right;">${formatCurrency(p.indirectRate)}</td>
+                                                <td style="padding: 12px; text-align: right;"><strong>${formatCurrency(beRate)}</strong></td>
+                                                <td style="padding: 12px; text-align: center;">
+                                                    <button class="btn-edit-pro" data-id="${p.id}" data-period="${p.period}" style="background: none; border: none; cursor: pointer; font-size: 1.2rem;" title="Editar Profesional">✏️</button>
+                                                    <button class="btn-delete-pro" data-id="${p.id}" data-period="${p.period}" style="background: none; border: none; cursor: pointer; font-size: 1.2rem; color: #dc2626;" title="Eliminar Profesional">🗑️</button>
+                                                </td>
+                                            </tr>
+                                        `;
+                                    }).join('');
+                                }
+
+                                if (currentViewMode === 'mensual') {
+                                    const groups = {};
+                                    professionals.forEach(p => {
+                                        const key = p.period || 'Sin Periodo';
+                                        if (!groups[key]) groups[key] = [];
+                                        groups[key].push(p);
+                                    });
+                                    
+                                    const sortedKeys = Object.keys(groups).sort((a,b) => getPeriodValue(b) - getPeriodValue(a)); // Descendente
+                                    
+                                    let html = '';
+                                    sortedKeys.forEach(key => {
+                                        const groupPros = groups[key];
+                                        groupPros.sort((a, b) => String(a.name).localeCompare(String(b.name)));
+                                        
+                                        const isExpanded = expandedGroups.has(key);
+                                        const arrowIcon = isExpanded ? '▼' : '▶';
+
+                                        html += `
+                                            <tr class="group-header" data-period="${key}" style="background: #f9fafb; border-bottom: 2px solid #e5e7eb; cursor: pointer; transition: background 0.2s;">
+                                                <td colspan="6" style="padding: 12px; color: #374151;">
+                                                    <span style="display: inline-block; width: 24px; text-align: center; color: #6b7280; font-size: 0.85em; font-family: monospace;">${arrowIcon}</span>
+                                                    <strong style="text-transform: uppercase;">${formatPeriod(key)}</strong>
+                                                    <span style="margin-left: 10px; font-weight: normal; color: #6b7280; font-size: 0.9em;">- ${groupPros.length} Profesional${groupPros.length !== 1 ? 'es' : ''}</span>
+                                                </td>
+                                            </tr>
+                                        `;
+                                        
+                                        if (isExpanded) {
+                                            html += groupPros.map(p => {
+                                                const beRate = Number(p.directRate) + Number(p.indirectRate);
+                                                return `
+                                                    <tr style="border-bottom: 1px solid #e5e7eb;">
+                                                        <td style="padding: 12px; padding-left: 40px;">${p.name}</td>
+                                                        <td style="padding: 12px;">${formatPeriod(p.period)}</td>
+                                                        <td style="padding: 12px; text-align: right;">${formatCurrency(p.directRate)}</td>
+                                                        <td style="padding: 12px; text-align: right;">${formatCurrency(p.indirectRate)}</td>
+                                                        <td style="padding: 12px; text-align: right;"><strong>${formatCurrency(beRate)}</strong></td>
+                                                        <td style="padding: 12px; text-align: center;">
+                                                            <button class="btn-edit-pro" data-id="${p.id}" data-period="${p.period}" style="background: none; border: none; cursor: pointer; font-size: 1.2rem;" title="Editar Profesional">✏️</button>
+                                                            <button class="btn-delete-pro" data-id="${p.id}" data-period="${p.period}" style="background: none; border: none; cursor: pointer; font-size: 1.2rem; color: #dc2626;" title="Eliminar Profesional">🗑️</button>
+                                                        </td>
+                                                    </tr>
+                                                `;
+                                            }).join('');
+                                        }
+                                    });
+                                    return html;
+                                }
+                            })()}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        `;
+        container.innerHTML = html;
+        attachEvents();
+    };
+
+    const attachEvents = () => {
+        // View Mode Dropdown
+        const viewModeSelect = document.getElementById('view-mode-select');
+        if (viewModeSelect) {
+            viewModeSelect.addEventListener('change', (e) => {
+                currentViewMode = e.target.value;
+                render();
+            });
+        }
+
+        // Accordion Controls
+        const btnExpandAll = document.getElementById('btn-expand-all');
+        if (btnExpandAll) {
+            btnExpandAll.addEventListener('click', () => {
+                const uniquePeriods = new Set(professionals.map(p => p.period || 'Sin Periodo'));
+                expandedGroups = uniquePeriods;
+                render();
+            });
+        }
+
+        const btnCollapseAll = document.getElementById('btn-collapse-all');
+        if (btnCollapseAll) {
+            btnCollapseAll.addEventListener('click', () => {
+                expandedGroups.clear();
+                render();
+            });
+        }
+
+        const groupHeaders = document.querySelectorAll('.group-header');
+        groupHeaders.forEach(header => {
+            header.addEventListener('click', (e) => {
+                const period = e.currentTarget.getAttribute('data-period');
+                if (expandedGroups.has(period)) {
+                    expandedGroups.delete(period);
+                } else {
+                    expandedGroups.add(period);
+                }
+                render();
+            });
+            // Añadir hover effect minimalista
+            header.addEventListener('mouseenter', () => header.style.background = '#f3f4f6');
+            header.addEventListener('mouseleave', () => header.style.background = '#f9fafb');
+        });
+
+        // Manual Add
+        const btnNew = document.getElementById('btn-new-pro');
+        if (btnNew) {
+            btnNew.addEventListener('click', async () => {
+                const name = prompt('Nombre del profesional:');
+                if (!name) return;
+                let period = prompt('Periodo (Ej: ene-25):');
+                if (!period) return;
+                const parsedPeriod = parsePeriodToMmmYy(period);
+                if (!parsedPeriod) {
+                    alert('Formato de periodo inválido. Debe ser mmm-yy (ej: ene-25).');
+                    return;
+                }
+                period = parsedPeriod;
+                const directRate = prompt('Tarifa Directa (CLP):');
+                if (!directRate || isNaN(directRate)) return;
+                const indirectRate = prompt('Tarifa Indirecta (CLP):');
+                if (!indirectRate || isNaN(indirectRate)) return;
+
+                const exists = professionals.some(p => String(p.name).trim() === name.trim() && String(p.period).trim() === period.trim());
+                if (exists) {
+                    alert('Registro duplicado: ya existe un profesional con el mismo Nombre en ese Periodo');
+                    return;
+                }
+
+                try {
+                    const dbResource = await ApiService.createResource({ resource_name: name.trim(), role: 'Profesional' });
+                    
+                    await ApiService.saveRates(period.trim(), [{
+                        resourceName: dbResource.resource_name,
+                        directRate: Number(directRate),
+                        indirectRate: Number(indirectRate)
+                    }]);
+
+                    StorageService.saveProfessional({
+                        id: String(dbResource.id),
+                        name: dbResource.resource_name,
+                        period: period.trim(),
+                        directRate: Number(directRate),
+                        indirectRate: Number(indirectRate)
+                    });
+                    
+                    alert('Registro ingresado correctamente');
+                    professionals = StorageService.getProfessionals();
+                    render();
+                } catch (err) {
+                    alert('Error al guardar en el servidor: ' + err.message);
+                }
+            });
+        }
+
+        // Excel Import
+        const btnImport = document.getElementById('btn-import-excel');
+        const fileInput = document.getElementById('excel-upload');
+        
+        if (btnImport && fileInput) {
+            btnImport.addEventListener('click', () => {
+                fileInput.click();
+            });
+
+            fileInput.addEventListener('change', (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+
+                const btnImportExcel = document.getElementById('btn-import-excel');
+                if (btnImportExcel) {
+                    btnImportExcel.innerHTML = '⏳ Procesando...';
+                    btnImportExcel.disabled = true;
+                }
+
+                const reader = new FileReader();
+                reader.onload = async function(evt) {
+                    try {
+                        const data = evt.target.result;
+                        // Assuming XLSX is available in global scope (via index.html)
+                        const workbook = XLSX.read(data, { type: 'binary' });
+                        const firstSheetName = workbook.SheetNames[0];
+                        const worksheet = workbook.Sheets[firstSheetName];
+                        
+                        // Parse JSON
+                        const json = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+                        
+                        // Expecting header row to be: Nombre | Periodo | Tarifa Directa | Tarifa Indirecta
+                        if (json.length > 1) {
+                            const newPros = [];
+                            let hasDuplicate = false;
+                            // Skip header row (index 0)
+                            for(let i = 1; i < json.length; i++) {
+                                const row = json[i];
+                                if (row && row.length >= 4 && row[0] && row[1]) {
+                                    const rawName = String(row[0]).trim();
+                                    const rawPeriod = String(row[1]).trim();
+                                    const parsedPeriod = parsePeriodToMmmYy(rawPeriod);
+                                    if (parsedPeriod) {
+                                        const isDuplicateInFile = newPros.some(p => p.name === rawName && p.period === parsedPeriod);
+                                        const isDuplicateInDB = professionals.some(p => p.name === rawName && p.period === parsedPeriod);
+                                        
+                                        if (isDuplicateInFile || isDuplicateInDB) {
+                                            alert(`Fila ${i + 1}: Registro duplicado: ya existe un profesional con el mismo Nombre en ese Periodo`);
+                                            hasDuplicate = true;
+                                            break;
+                                        }
+
+                                        newPros.push({
+                                            name: rawName,
+                                            period: parsedPeriod,
+                                            directRate: Number(row[2]) || 0,
+                                            indirectRate: Number(row[3]) || 0
+                                        });
+                                    }
+                                }
+                            }
+                            
+                            if (hasDuplicate) {
+                                fileInput.value = '';
+                                return;
+                            }
+                            
+                            if (newPros.length > 0) {
+                                    try {
+                                        const mappedPros = [];
+                                        for (const pro of newPros) {
+                                            const dbResource = await ApiService.createResource({ resource_name: pro.name, role: 'Profesional' });
+                                            // Ideally we should have a bulk save rates or iterate over them
+                                            await ApiService.saveRates(pro.period, [{
+                                                resourceName: dbResource.resource_name,
+                                                directRate: pro.directRate,
+                                                indirectRate: pro.indirectRate
+                                            }]);
+
+                                            mappedPros.push({
+                                                id: String(dbResource.id),
+                                                name: dbResource.resource_name,
+                                                period: pro.period,
+                                                directRate: pro.directRate,
+                                                indirectRate: pro.indirectRate
+                                            });
+                                        }
+                                        StorageService.saveProfessionalsBulk(mappedPros);
+
+                                        alert(`Registro ingresado correctamente.\nSe cargaron/actualizaron ${newPros.length} profesionales exitosamente.`);
+                                        // Refresh from API ideally, but for now fallback to StorageService just in case UI expects it, or fetch from API if we refactored render
+                                        professionals = StorageService.getProfessionals(); 
+                                        render();
+                                    } catch (apiErr) {
+                                         alert('Error al guardar en base de datos: ' + apiErr.message);
+                                    }
+                            } else {
+                                alert('No se encontraron filas válidas en el Excel. Formato esperado: Nombre, Periodo, Tarifa Directa, Tarifa Indirecta.');
+                            }
+                        }
+                    } catch (err) {
+                        alert('Error al leer el archivo Excel: ' + err.message);
+                    } finally {
+                        if (btnImportExcel) {
+                            btnImportExcel.innerHTML = '📤 Importar Excel';
+                            btnImportExcel.disabled = false;
+                        }
+                    }
+                    fileInput.value = ''; // reset file input
+                };
+                reader.readAsBinaryString(file);
+            });
+        }
+
+        const editBtns = document.querySelectorAll('.btn-edit-pro');
+        editBtns.forEach(btn => {
+            btn.addEventListener('click', async (e) => {
+                const id = e.target.closest('button').dataset.id;
+                const srcPeriod = e.target.closest('button').dataset.period;
+                const matchPeriod = (srcPeriod === 'undefined' || srcPeriod === 'null') ? null : srcPeriod;
+                const pro = professionals.find(p => p.id === id && (p.period === matchPeriod || String(p.period) === String(matchPeriod)));
+                if(!pro) return;
+                
+                const newName = prompt('Nombre del profesional:', pro.name);
+                if (newName === null) return;
+                
+                let newPeriod = prompt('Periodo (Ej: ene-25):', formatPeriod(pro.period));
+                if (newPeriod === null) return;
+                
+                const parsedPeriod = parsePeriodToMmmYy(newPeriod);
+                if (!parsedPeriod && newPeriod.trim() !== '') {
+                    alert('Formato de periodo inválido. Debe ser mmm-yy (ej: ene-25).');
+                    return;
+                } else if (!parsedPeriod) {
+                    return;
+                }
+                
+                const newDirectRate = prompt('Tarifa Directa (CLP):', pro.directRate);
+                if (newDirectRate === null || isNaN(newDirectRate) || newDirectRate.trim() === '') return;
+                
+                const newIndirectRate = prompt('Tarifa Indirecta (CLP):', pro.indirectRate);
+                if (newIndirectRate === null || isNaN(newIndirectRate) || newIndirectRate.trim() === '') return;
+
+                const exists = professionals.some(p => p.id !== pro.id && String(p.name).trim() === newName.trim() && p.period === parsedPeriod);
+                if (exists) {
+                    alert('Registro duplicado: ya existe un profesional con el mismo Nombre en ese Periodo');
+                    return;
+                }
+
+                try {
+                    // Update Name if changed
+                    if (newName.trim() !== pro.name) {
+                        await ApiService.updateResource(pro.id, { resource_name: newName.trim() });
+                    }
+                    
+                    // Period changed -> new period + delete old period
+                    if (parsedPeriod !== pro.period) {
+                        await ApiService.saveRates(parsedPeriod, [{
+                            resourceName: newName.trim(),
+                            directRate: Number(newDirectRate),
+                            indirectRate: Number(newIndirectRate)
+                        }]);
+                        await ApiService.deleteRate(pro.id, pro.period);
+                    } else {
+                        // Same period, just update rates
+                        await ApiService.saveRates(parsedPeriod, [{
+                            resourceName: newName.trim(),
+                            directRate: Number(newDirectRate),
+                            indirectRate: Number(newIndirectRate)
+                        }]);
+                    }
+
+                    alert('Registro Actualizado en BD (Azure).');
+
+                    // Synchronize with Azure DB
+                    const ratesResult = await ApiService.getAllRates();
+                    const mappedPros = ratesResult.map(rr => ({
+                        id: String(rr.resource_id),
+                        name: rr.resource_name,
+                        period: rr.period,
+                        directRate: Number(rr.direct_rate) || 0,
+                        indirectRate: Number(rr.indirect_rate) || 0
+                    }));
+                    StorageService.saveProfessionalsBulk(mappedPros);
+                    professionals = StorageService.getProfessionals();
+                    render();
+                } catch (err) {
+                    alert('Error guardando en Azure: ' + err.message);
+                }
+            });
+        });
+
+        const deleteBtns = document.querySelectorAll('.btn-delete-pro');
+        deleteBtns.forEach(btn => {
+            btn.addEventListener('click', async (e) => {
+                const id = e.target.closest('button').dataset.id;
+                // Wait, if there are multiple periods, getting by id will return the FIRST one. We need the exact period.
+                // The dataset only has id. Let's add dataset.period to the button or just infer it from the row? 
+                // Since clicking delete button from a row has a specific period context... Wait! `professionals.find(p => p.id === id)` could find the wrong period if there are many rates for a resource!
+                // We must use the period. The HTML generation needs dataset-period!
+                const period = e.target.closest('button').dataset.period;
+                
+                if (!period || period === 'undefined' || period === 'null') {
+                    if (confirm(`El profesional no tiene una tarifa o un periodo válido. ¿Deseas eliminar al profesional por completo del sistema (Nivel Base)?`)) {
+                        try {
+                            await ApiService.deleteResourceBase(id);
+                            alert('Profesional eliminado completamente del sistema.');
+                            
+                            const ratesResult = await ApiService.getAllRates();
+                            const mappedPros = ratesResult.map(rr => ({
+                                id: String(rr.resource_id),
+                                name: rr.resource_name,
+                                period: rr.period,
+                                directRate: Number(rr.direct_rate) || 0,
+                                indirectRate: Number(rr.indirect_rate) || 0
+                            }));
+                            StorageService.saveProfessionalsBulk(mappedPros);
+                            professionals = StorageService.getProfessionals();
+                            render();
+                        } catch(err) {
+                            alert('Error al borrar desde Nivel Base: ' + err.message);
+                        }
+                    }
+                    return;
+                }
+                
+                // Formatear proactivamente por si el DOM lo ensució
+                const cleanPeriod = period.trim();
+
+                if(confirm(`¿Estás seguro de eliminar este profesional para el periodo ${cleanPeriod}?`)) {
+                    try {
+                        await ApiService.deleteRate(id, cleanPeriod);
+                        alert('Operación validada en Azure. Registro eliminado.');
+                        
+                        const ratesResult = await ApiService.getAllRates();
+                        const mappedPros = ratesResult.map(rr => ({
+                            id: String(rr.resource_id),
+                            name: rr.resource_name,
+                            period: rr.period,
+                            directRate: Number(rr.direct_rate) || 0,
+                            indirectRate: Number(rr.indirect_rate) || 0
+                        }));
+                        StorageService.saveProfessionalsBulk(mappedPros);
+                        professionals = StorageService.getProfessionals();
+                        render();
+                    } catch(err) {
+                        alert('Error al borrar en Azure: ' + err.message);
+                    }
+                }
+            });
+        });
+    };
+
+    render();
+}
