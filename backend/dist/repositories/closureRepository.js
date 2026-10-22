@@ -33,7 +33,7 @@ const parsePeriodToSqlDate = (periodStr) => {
 };
 exports.ClosureRepository = {
     getAll: () => __awaiter(void 0, void 0, void 0, function* () {
-        const pool = (0, db_1.getPool)();
+        const pool = yield (0, db_1.getPool)();
         // Get all closure headers
         const closuresResult = yield pool.request()
             .query(`
@@ -75,7 +75,7 @@ exports.ClosureRepository = {
         return closures;
     }),
     getByProjectAndPeriod: (projectCode, period) => __awaiter(void 0, void 0, void 0, function* () {
-        const pool = (0, db_1.getPool)();
+        const pool = yield (0, db_1.getPool)();
         // Get Closure Header
         const closureResult = yield pool.request()
             .input('project_code', mssql_1.default.VarChar, projectCode)
@@ -119,7 +119,7 @@ exports.ClosureRepository = {
         return closure;
     }),
     saveDraft: (projectCode, period, data, user) => __awaiter(void 0, void 0, void 0, function* () {
-        const pool = (0, db_1.getPool)();
+        const pool = yield (0, db_1.getPool)();
         const transaction = new mssql_1.default.Transaction(pool);
         try {
             yield transaction.begin();
@@ -226,7 +226,7 @@ exports.ClosureRepository = {
         }
     }),
     setStatus: (id, status, user) => __awaiter(void 0, void 0, void 0, function* () {
-        const pool = (0, db_1.getPool)();
+        const pool = yield (0, db_1.getPool)();
         yield pool.request()
             .input('id', mssql_1.default.Int, id)
             .input('status', mssql_1.default.VarChar, status)

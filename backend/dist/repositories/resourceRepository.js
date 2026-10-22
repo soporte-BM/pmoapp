@@ -17,12 +17,12 @@ const mssql_1 = __importDefault(require("mssql"));
 const db_1 = require("../db");
 exports.ResourceRepository = {
     getAll: () => __awaiter(void 0, void 0, void 0, function* () {
-        const pool = (0, db_1.getPool)();
+        const pool = yield (0, db_1.getPool)();
         const result = yield pool.request().query('SELECT * FROM Resources');
         return result.recordset;
     }),
     create: (resource) => __awaiter(void 0, void 0, void 0, function* () {
-        const pool = (0, db_1.getPool)();
+        const pool = yield (0, db_1.getPool)();
         const result = yield pool.request()
             .input('resource_name', mssql_1.default.VarChar, resource.resource_name)
             .input('role', mssql_1.default.VarChar, resource.role)
@@ -41,7 +41,7 @@ exports.ResourceRepository = {
         return result.recordset[0];
     }),
     update: (id, newName) => __awaiter(void 0, void 0, void 0, function* () {
-        const pool = (0, db_1.getPool)();
+        const pool = yield (0, db_1.getPool)();
         // Evitamos inyección cambiando solo si no existe otro con ese nombre o si es el mismo
         yield pool.request()
             .input('id', mssql_1.default.Int, id)
@@ -58,7 +58,7 @@ exports.ResourceRepository = {
       `);
     }),
     softDelete: (id) => __awaiter(void 0, void 0, void 0, function* () {
-        const pool = (0, db_1.getPool)();
+        const pool = yield (0, db_1.getPool)();
         yield pool.request()
             .input('id', mssql_1.default.Int, id)
             .query(`UPDATE Resources SET status = 'INACTIVE', updated_at = GETDATE() WHERE id = @id`);

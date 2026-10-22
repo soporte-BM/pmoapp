@@ -17,12 +17,12 @@ const mssql_1 = __importDefault(require("mssql"));
 const db_1 = require("../db");
 exports.ProjectRepository = {
     getAll: () => __awaiter(void 0, void 0, void 0, function* () {
-        const pool = (0, db_1.getPool)();
+        const pool = yield (0, db_1.getPool)();
         const result = yield pool.request().query('SELECT * FROM Projects');
         return result.recordset;
     }),
     create: (project) => __awaiter(void 0, void 0, void 0, function* () {
-        const pool = (0, db_1.getPool)();
+        const pool = yield (0, db_1.getPool)();
         let status = project.status || 'ACTIVE';
         let manager = project.manager || null;
         const result = yield pool.request()
@@ -48,7 +48,7 @@ exports.ProjectRepository = {
         return result.recordset[0];
     }),
     delete: (id) => __awaiter(void 0, void 0, void 0, function* () {
-        const pool = (0, db_1.getPool)();
+        const pool = yield (0, db_1.getPool)();
         const transaction = new mssql_1.default.Transaction(pool);
         try {
             yield transaction.begin();

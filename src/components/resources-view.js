@@ -18,6 +18,28 @@ export async function renderResources(container) {
         StorageService.saveProfessionalsBulk(mappedPros);
     } catch (err) {
         console.error('Error al sincronizar profesionales con el servidor:', err);
+        const cached = StorageService.getProfessionals();
+        if (!cached || cached.length === 0) {
+            container.innerHTML = `
+                <div style="padding: 40px; max-width: 520px; margin: 40px auto; background: #fff; border-radius: 12px; border: 1px solid #fee2e2; box-shadow: 0 4px 12px rgba(0,0,0,0.05); text-align: center;">
+                    <div style="font-size: 40px; margin-bottom: 12px;">⏳</div>
+                    <h2 style="color: #b91c1c; margin-top: 0; font-size: 1.35rem;">El servidor se está iniciando</h2>
+                    <p style="color: #4b5563; font-size: 0.95rem; line-height: 1.5;">
+                        El backend o la base de datos en Azure se están reactivando.
+                    </p>
+                    <p style="color: #6b7280; font-size: 0.85rem; margin-bottom: 24px;">
+                        ${err.message || 'Tiempo de espera agotado al conectar.'}
+                    </p>
+                    <button id="btn-retry-resources" style="background: #2563eb; color: #fff; border: none; padding: 10px 24px; border-radius: 6px; font-weight: 600; cursor: pointer; font-size: 0.95rem;">
+                        🔄 Reintentar Conexión Ahora
+                    </button>
+                </div>
+            `;
+            container.querySelector('#btn-retry-resources')?.addEventListener('click', () => {
+                renderResources(container);
+            });
+            return;
+        }
     }
 
     let professionals = StorageService.getProfessionals();

@@ -27,7 +27,7 @@ const parsePeriodToSqlDate = (periodStr: string): string => {
 
 export const RateRepository = {
     getAll: async () => {
-        const pool = getPool();
+        const pool = await getPool();
         const result = await pool.request()
             .query(`
         SELECT r.id as resource_id, r.resource_name, rr.period, rr.direct_rate, rr.indirect_rate, rr.currency
@@ -39,7 +39,7 @@ export const RateRepository = {
     },
 
     getByPeriod: async (period: string) => {
-        const pool = getPool();
+        const pool = await getPool();
         const result = await pool.request()
             .input('period', sql.Date, parsePeriodToSqlDate(period))
             .query(`
@@ -52,7 +52,7 @@ export const RateRepository = {
     },
 
     upsertRate: async (resourceName: string, period: string, directRate: number, indirectRate: number) => {
-        const pool = getPool();
+        const pool = await getPool();
         const transaction = new sql.Transaction(pool);
 
         try {
@@ -111,7 +111,7 @@ export const RateRepository = {
     // Batch upsert could be optimized but loop for now is safer for transaction logic simplicity in this context
 
     deleteRate: async (resourceId: number, period: string) => {
-        const pool = getPool();
+        const pool = await getPool();
         const sqlDate = parsePeriodToSqlDate(period);
         await pool.request()
             .input('resource_id', sql.Int, resourceId)

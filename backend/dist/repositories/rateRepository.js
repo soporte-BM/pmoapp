@@ -33,7 +33,7 @@ const parsePeriodToSqlDate = (periodStr) => {
 };
 exports.RateRepository = {
     getAll: () => __awaiter(void 0, void 0, void 0, function* () {
-        const pool = (0, db_1.getPool)();
+        const pool = yield (0, db_1.getPool)();
         const result = yield pool.request()
             .query(`
         SELECT r.id as resource_id, r.resource_name, rr.period, rr.direct_rate, rr.indirect_rate, rr.currency
@@ -44,7 +44,7 @@ exports.RateRepository = {
         return result.recordset;
     }),
     getByPeriod: (period) => __awaiter(void 0, void 0, void 0, function* () {
-        const pool = (0, db_1.getPool)();
+        const pool = yield (0, db_1.getPool)();
         const result = yield pool.request()
             .input('period', mssql_1.default.Date, parsePeriodToSqlDate(period))
             .query(`
@@ -56,7 +56,7 @@ exports.RateRepository = {
         return result.recordset;
     }),
     upsertRate: (resourceName, period, directRate, indirectRate) => __awaiter(void 0, void 0, void 0, function* () {
-        const pool = (0, db_1.getPool)();
+        const pool = yield (0, db_1.getPool)();
         const transaction = new mssql_1.default.Transaction(pool);
         try {
             yield transaction.begin();
@@ -109,7 +109,7 @@ exports.RateRepository = {
     }),
     // Batch upsert could be optimized but loop for now is safer for transaction logic simplicity in this context
     deleteRate: (resourceId, period) => __awaiter(void 0, void 0, void 0, function* () {
-        const pool = (0, db_1.getPool)();
+        const pool = yield (0, db_1.getPool)();
         const sqlDate = parsePeriodToSqlDate(period);
         yield pool.request()
             .input('resource_id', mssql_1.default.Int, resourceId)

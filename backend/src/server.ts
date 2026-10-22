@@ -13,6 +13,8 @@ import path from 'path';
 
 // Load environment variables
 dotenv.config();
+dotenv.config({ path: path.resolve(__dirname, '../.env') });
+dotenv.config({ path: path.resolve(__dirname, '../../.env') });
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -43,17 +45,32 @@ app.use('/api/closures', closureRoutes);
 
 // Health Check
 import { Request, Response } from "express";
-// ...
+
 app.get("/health", (req: Request, res: Response) => {
-    res.status(200).json({ ok: true });
+    res.status(200).json({ 
+        ok: true, 
+        service: 'pmoapp-backend', 
+        timestamp: new Date().toISOString() 
+    });
 });
+
+// Database ping / warm-up endpoint (useful for keep-alive crons or monitoring)
+app.get("/health/db", async (req: Request, res: Response) => {
+    try {
+        const pool = await connectDB();
+        res.status(200).json({ ok: true, dbConnected: pool.connected });
+    } catch (error: any) {
+        res.status(503).json({ ok: false, error: error.message || 'Database unavailable' });
+    }
+});
+
 // Start Server
 const startServer = async () => {
     try {
         await connectDB();
         console.log("Database connected successfully");
     } catch (error) {
-        console.warn("⚠️ Database not available. Running in DEV mode without DB.");
+        console.warn("⚠️ Initial DB connection timed out or database paused. Auto-reconnection enabled on incoming requests.");
     }
 
     app.listen(PORT, () => {

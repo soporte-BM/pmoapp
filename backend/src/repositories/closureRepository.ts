@@ -33,7 +33,7 @@ const parsePeriodToSqlDate = (periodStr: string): string => {
 
 export const ClosureRepository = {
     getAll: async () => {
-        const pool = getPool();
+        const pool = await getPool();
         // Get all closure headers
         const closuresResult = await pool.request()
             .query(`
@@ -85,7 +85,7 @@ export const ClosureRepository = {
     },
 
     getByProjectAndPeriod: async (projectCode: string, period: string) => {
-        const pool = getPool();
+        const pool = await getPool();
         // Get Closure Header
         const closureResult = await pool.request()
             .input('project_code', sql.VarChar, projectCode)
@@ -138,7 +138,7 @@ export const ClosureRepository = {
     },
 
     saveDraft: async (projectCode: string, period: string, data: any, user: string) => {
-        const pool = getPool();
+        const pool = await getPool();
         const transaction = new sql.Transaction(pool);
 
         try {
@@ -260,7 +260,7 @@ export const ClosureRepository = {
     },
 
     setStatus: async (id: number, status: 'DRAFT' | 'VALIDATED', user: string) => {
-        const pool = getPool();
+        const pool = await getPool();
         await pool.request()
             .input('id', sql.Int, id)
             .input('status', sql.VarChar, status)

@@ -14,7 +14,15 @@ export async function renderDashboard(container, options = {}) {
     } = options;
 
     if (!skipFetch) {
-        container.innerHTML = '<div style="padding:20px; text-align:center;">Cargando datos desde el servidor...</div>';
+        container.innerHTML = `
+            <div style="padding: 50px 20px; text-align: center; color: #4b5563;">
+                <div style="display: inline-block; width: 36px; height: 36px; border: 3px solid #e5e7eb; border-top-color: #2563eb; border-radius: 50%; animation: spin 1s linear infinite; margin-bottom: 16px;"></div>
+                <h3 style="margin: 0 0 8px 0; color: #1f2937;">Sincronizando con el servidor...</h3>
+                <p style="margin: 0; font-size: 0.9rem; color: #6b7280;">Si el servidor en Azure estaba en reposo, esto puede tardar unos segundos mientras se inicializa.</p>
+                <style>@keyframes spin { to { transform: rotate(360deg); } }</style>
+            </div>
+        `;
+
         try {
             const [dbProjects, dbClosures] = await Promise.all([
                 ApiService.getProjects(),
@@ -48,17 +56,35 @@ export async function renderDashboard(container, options = {}) {
             StorageService.saveEntriesBulk(mappedEntries);
         } catch (err) {
             console.error('Error sincronizando con Backend en Dashboard:', err);
-            // Only alert if there is no local cache yet (meaning it's probably a cold start failure)
-            if (!sessionStorage.getItem('pmo_projects_v1')) {
+            const cachedProjects = StorageService.getProjects();
+            
+            // If we have cached projects, we can still render the dashboard and show a non-intrusive warning banner
+            if (cachedProjects && cachedProjects.length > 0) {
+                console.warn('Usando datos en caché local tras error de sincronización.');
+                // Will continue execution and show banner below
+            } else {
                 container.innerHTML = `
-                    <div style="padding:40px; text-align:center; color:#b91c1c;">
-                        <h2>Error de Conexión</h2>
-                        <p>No se pudo conectar con el servidor.</p>
-                        <p><strong>Nota:</strong> Como el sistema está alojado en la nube (Azure), si ha pasado mucho tiempo sin uso, el servidor entra en Standby por ahorro de energía.</p>
-                        <p><strong>Por favor, espere 15 segundos y <a href="#" onclick="window.location.reload()" style="color:#2a7fde; font-weight:bold;">recargue la página</a>.</strong></p>
+                    <div style="padding: 40px; max-width: 520px; margin: 40px auto; background: #fff; border-radius: 12px; border: 1px solid #fee2e2; box-shadow: 0 4px 12px rgba(0,0,0,0.05); text-align: center;">
+                        <div style="font-size: 40px; margin-bottom: 12px;">⏳</div>
+                        <h2 style="color: #b91c1c; margin-top: 0; font-size: 1.35rem;">El servidor se está iniciando</h2>
+                        <p style="color: #4b5563; font-size: 0.95rem; line-height: 1.5;">
+                            El backend o la base de datos en Azure se encontraban en reposo por ahorro de energía y se están reactivando.
+                        </p>
+                        <p style="color: #6b7280; font-size: 0.85rem; margin-bottom: 24px;">
+                            ${err.message || 'Tiempo de espera agotado al conectar con el servidor.'}
+                        </p>
+                        <button id="btn-retry-dashboard" style="background: #2563eb; color: #fff; border: none; padding: 10px 24px; border-radius: 6px; font-weight: 600; cursor: pointer; font-size: 0.95rem; transition: background 0.2s;">
+                            🔄 Reintentar Conexión Ahora
+                        </button>
                     </div>
                 `;
-                return; // Stop rendering the rest of the empty dashboard
+                const btnRetry = container.querySelector('#btn-retry-dashboard');
+                if (btnRetry) {
+                    btnRetry.addEventListener('click', () => {
+                        renderDashboard(container, options);
+                    });
+                }
+                return; // Stop rendering
             }
         }
     }

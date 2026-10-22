@@ -11,13 +11,13 @@ export interface Project {
 
 export const ProjectRepository = {
     getAll: async (): Promise<Project[]> => {
-        const pool = getPool();
+        const pool = await getPool();
         const result = await pool.request().query('SELECT * FROM Projects');
         return result.recordset;
     },
 
     create: async (project: Project): Promise<Project> => {
-        const pool = getPool();
+        const pool = await getPool();
         
         let status = project.status || 'ACTIVE';
         let manager = project.manager || null;
@@ -46,7 +46,7 @@ export const ProjectRepository = {
     },
 
     delete: async (id: number): Promise<boolean> => {
-        const pool = getPool();
+        const pool = await getPool();
         const transaction = new sql.Transaction(pool);
         
         try {

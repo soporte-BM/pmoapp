@@ -10,13 +10,13 @@ export interface Resource {
 
 export const ResourceRepository = {
     getAll: async (): Promise<Resource[]> => {
-        const pool = getPool();
+        const pool = await getPool();
         const result = await pool.request().query('SELECT * FROM Resources');
         return result.recordset;
     },
 
     create: async (resource: Resource): Promise<Resource> => {
-        const pool = getPool();
+        const pool = await getPool();
         const result = await pool.request()
             .input('resource_name', sql.VarChar, resource.resource_name)
             .input('role', sql.VarChar, resource.role)
@@ -36,7 +36,7 @@ export const ResourceRepository = {
     },
 
     update: async (id: number, newName: string): Promise<void> => {
-        const pool = getPool();
+        const pool = await getPool();
         // Evitamos inyección cambiando solo si no existe otro con ese nombre o si es el mismo
         await pool.request()
             .input('id', sql.Int, id)
@@ -54,7 +54,7 @@ export const ResourceRepository = {
     },
 
     softDelete: async (id: number): Promise<void> => {
-        const pool = getPool();
+        const pool = await getPool();
         await pool.request()
             .input('id', sql.Int, id)
             .query(`UPDATE Resources SET status = 'INACTIVE', updated_at = GETDATE() WHERE id = @id`);

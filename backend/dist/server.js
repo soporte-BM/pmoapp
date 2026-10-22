@@ -25,6 +25,8 @@ const closureRoutes_1 = __importDefault(require("./routes/closureRoutes"));
 const path_1 = __importDefault(require("path"));
 // Load environment variables
 dotenv_1.default.config();
+dotenv_1.default.config({ path: path_1.default.resolve(__dirname, '../.env') });
+dotenv_1.default.config({ path: path_1.default.resolve(__dirname, '../../.env') });
 const app = (0, express_1.default)();
 const PORT = process.env.PORT || 3000;
 const isProduction = process.env.NODE_ENV === 'production';
@@ -48,10 +50,23 @@ app.use('/api/projects', projectRoutes_1.default);
 app.use('/api/resources', resourceRoutes_1.default);
 app.use('/api/rates', rateRoutes_1.default);
 app.use('/api/closures', closureRoutes_1.default);
-// ...
 app.get("/health", (req, res) => {
-    res.status(200).json({ ok: true });
+    res.status(200).json({
+        ok: true,
+        service: 'pmoapp-backend',
+        timestamp: new Date().toISOString()
+    });
 });
+// Database ping / warm-up endpoint (useful for keep-alive crons or monitoring)
+app.get("/health/db", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
+    try {
+        const pool = yield (0, db_1.connectDB)();
+        res.status(200).json({ ok: true, dbConnected: pool.connected });
+    }
+    catch (error) {
+        res.status(503).json({ ok: false, error: error.message || 'Database unavailable' });
+    }
+}));
 // Start Server
 const startServer = () => __awaiter(void 0, void 0, void 0, function* () {
     try {
@@ -59,7 +74,7 @@ const startServer = () => __awaiter(void 0, void 0, void 0, function* () {
         console.log("Database connected successfully");
     }
     catch (error) {
-        console.warn("⚠️ Database not available. Running in DEV mode without DB.");
+        console.warn("⚠️ Initial DB connection timed out or database paused. Auto-reconnection enabled on incoming requests.");
     }
     app.listen(PORT, () => {
         console.log(`Server running on port ${PORT}`);

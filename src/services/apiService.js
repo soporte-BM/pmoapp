@@ -5,10 +5,40 @@ const API_BASE_URL = 'https://pmoapp-avbhckasgjbfcag4.brazilsouth-01.azurewebsit
 const handleResponse = async (response) => {
     if (!response.ok) {
         const payload = await response.json().catch(() => ({ message: 'Unknown error' }));
-        const details = payload.error ? ` - Detalles: ${payload.error}` : '';
+        const details = payload.error ? ` - Detalles: ${typeof payload.error === 'object' ? JSON.stringify(payload.error) : payload.error}` : '';
         throw new Error((payload.message || `Request failed: ${response.status}`) + details);
     }
     return response.json();
+};
+
+// Retry helper to smoothly absorb Azure cold-starts and database auto-resume
+const fetchWithRetry = async (url, options = {}, retries = 2, delayMs = 3000) => {
+    let lastError = null;
+    for (let attempt = 0; attempt <= retries; attempt++) {
+        try {
+            const response = await fetch(url, options);
+            if (response.ok) {
+                return response;
+            }
+            const isGet = !options.method || options.method.toUpperCase() === 'GET';
+            if (isGet && response.status >= 500 && attempt < retries) {
+                console.warn(`[ApiService] Request to ${url} returned ${response.status}. Retrying in ${delayMs}ms (attempt ${attempt + 1}/${retries})...`);
+                await new Promise(r => setTimeout(r, delayMs));
+                continue;
+            }
+            return response;
+        } catch (err) {
+            lastError = err;
+            const isGet = !options.method || options.method.toUpperCase() === 'GET';
+            if (isGet && attempt < retries) {
+                console.warn(`[ApiService] Network error on ${url}. Retrying in ${delayMs}ms (attempt ${attempt + 1}/${retries})...`, err);
+                await new Promise(r => setTimeout(r, delayMs));
+                continue;
+            }
+            throw err;
+        }
+    }
+    throw lastError || new Error('Request failed after retries');
 };
 
 // Headers with simulated auth
@@ -25,7 +55,7 @@ const getHeaders = () => {
 export const ApiService = {
     // Projects
     getProjects: async () => {
-        const response = await fetch(`${API_BASE_URL}/projects`, { headers: getHeaders() });
+        const response = await fetchWithRetry(`${API_BASE_URL}/projects`, { headers: getHeaders() });
         return handleResponse(response);
     },
 
@@ -58,7 +88,7 @@ export const ApiService = {
 
     // Resources
     getResources: async () => {
-        const response = await fetch(`${API_BASE_URL}/resources`, { headers: getHeaders() });
+        const response = await fetchWithRetry(`${API_BASE_URL}/resources`, { headers: getHeaders() });
         return handleResponse(response);
     },
 
@@ -90,12 +120,12 @@ export const ApiService = {
 
     // Rates
     getAllRates: async () => {
-        const response = await fetch(`${API_BASE_URL}/rates/all`, { headers: getHeaders() });
+        const response = await fetchWithRetry(`${API_BASE_URL}/rates/all`, { headers: getHeaders() });
         return handleResponse(response);
     },
 
     getRates: async (period) => {
-        const response = await fetch(`${API_BASE_URL}/rates?period=${period}`, { headers: getHeaders() });
+        const response = await fetchWithRetry(`${API_BASE_URL}/rates?period=${period}`, { headers: getHeaders() });
         return handleResponse(response);
     },
 
@@ -129,12 +159,12 @@ export const ApiService = {
         }
 
         // Fetch ALL closures if no specific filter
-        const response = await fetch(`${API_BASE_URL}/closures/all`, { headers: getHeaders() });
+        const response = await fetchWithRetry(`${API_BASE_URL}/closures/all`, { headers: getHeaders() });
         return handleResponse(response);
     },
 
     getClosure: async (projectCode, period) => {
-        const response = await fetch(`${API_BASE_URL}/closures?projectCode=${projectCode}&period=${period}`, { headers: getHeaders() });
+        const response = await fetchWithRetry(`${API_BASE_URL}/closures?projectCode=${projectCode}&period=${period}`, { headers: getHeaders() });
         return handleResponse(response);
     },
 
